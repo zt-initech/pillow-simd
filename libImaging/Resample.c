@@ -92,16 +92,16 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
 
     __m128i mmmax = _mm_set1_epi32(255);
     __m128i mmmin = _mm_set1_epi32(0);
-    __m128i shiftmask = _mm_set_epi8(0,0,0,0,0,0,0,0,0,0,0,0,12,8,4,0);
+    __m128i shiftmask = _mm_set_epi8(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,12,8,4,0);
 
     for (xx = 0; xx < xsize; xx++) {
-        __m128 sss = _mm_set1_ps(0);
+        __m128 sss = _mm_setzero_ps();
         xmin = xbounds[xx * 2 + 0];
         xmax = xbounds[xx * 2 + 1];
         k = &kk[xx * kmax];
-        for (x = xmin; x < xmax; x++) {
-            __m128i pix = _mm_cvtepu8_epi32(_mm_cvtsi32_si128(lineIn[x]));
-            __m128 mmk = _mm_set1_ps(k[x - xmin]);
+        for (x = 0; x < xmax; x++) {
+            __m128i pix = _mm_cvtepu8_epi32(*(__m128i *) &lineIn[x + xmin]);
+            __m128 mmk = _mm_set1_ps(k[x]);
             __m128 mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
             sss = _mm_add_ps(sss, mul);
         }
@@ -120,13 +120,13 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
 
     __m128i mmmax = _mm_set1_epi32(255);
     __m128i mmmin = _mm_set1_epi32(0);
-    __m128i shiftmask = _mm_set_epi8(0,0,0,0,0,0,0,0,0,0,0,0,12,8,4,0);
+    __m128i shiftmask = _mm_set_epi8(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,12,8,4,0);
     /* n-bit grayscale */
     for (xx = 0; xx < imIn->xsize; xx++) {
-        __m128 sss = _mm_set1_ps(0);
-        for (x = xmin; x < xmax; x++) {
-            __m128i pix = _mm_cvtepu8_epi32(_mm_cvtsi32_si128(imIn->image32[x][xx]));
-            __m128 mmk = _mm_set1_ps(k[x - xmin]);
+        __m128 sss = _mm_setzero_ps();
+        for (x = 0; x < xmax; x++) {
+            __m128i pix = _mm_cvtepu8_epi32(*(__m128i *) &imIn->image32[x + xmin][xx]);
+            __m128 mmk = _mm_set1_ps(k[x]);
             __m128 mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
             sss = _mm_add_ps(sss, mul);
         }
@@ -228,7 +228,7 @@ ImagingResampleHorizontal(Imaging imIn, int xsize, int filter)
                 k[x] /= ww;
         }
         xbounds[xx * 2 + 0] = xmin;
-        xbounds[xx * 2 + 1] = xmax;
+        xbounds[xx * 2 + 1] = xmax - xmin;
     }
 
     imOut = ImagingNew(imIn->mode, xsize, imIn->ysize);
@@ -386,7 +386,7 @@ ImagingResampleVertical(Imaging imIn, int ysize, int filter)
                 /* n-bit grayscale */
                 ImagingResampleVerticalConvolution8u(
                     (UINT32 *) imOut->image32[yy], imIn,
-                    xmin, xmax, k
+                    xmin, xmax - xmin, k
                 );
                 break;
             case IMAGING_TYPE_INT32:
