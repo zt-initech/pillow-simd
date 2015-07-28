@@ -16,6 +16,10 @@
 #include "Imaging.h"
 
 #include <math.h>
+#include <emmintrin.h>
+#include <mmintrin.h>
+#include <smmintrin.h>
+
 
 struct filter {
     float (*filter)(float x);
@@ -79,6 +83,35 @@ static inline UINT8 clip8(float in)
 }
 
 
+void
+ImagingStretchHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
+    int xsize, int *xbounds, float *kk, int kmax)
+{
+    int xmin, xmax, xx, x;
+    float *k;
+
+    __m128i mmmax = _mm_set1_epi32(255);
+    __m128i mmmin = _mm_set1_epi32(0);
+    __m128i shiftmask = _mm_set_epi8(0,0,0,0,0,0,0,0,0,0,0,0,0,4,8,12);
+
+    for (xx = 0; xx < xsize; xx++) {
+        __m128 sss = _mm_set1_ps(0);
+        xmin = xbounds[xx * 2 + 0];
+        xmax = xbounds[xx * 2 + 1];
+        k = &kk[xx * kmax];
+        for (x = xmin; x < xmax; x++) {
+            __m128i pix = _mm_cvtepu8_epi32(_mm_cvtsi32_si128(lineIn[x]));
+            __m128 mmk = _mm_set1_ps(k[x - xmin]);
+            __m128 mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
+            sss = _mm_add_ps(sss, mul);
+        }
+        __m128i ssi = _mm_cvtps_epi32(sss);
+        ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, ssi));
+        lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(ssi, shiftmask));
+    }
+}
+
+
 /* This is work around bug in GCC prior 4.9 in 64 bit mode.
    GCC generates code with partial dependency which 3 times slower.
    See: http://stackoverflow.com/a/26588074/253146 */
@@ -101,7 +134,7 @@ ImagingResampleHorizontal(Imaging imIn, int xsize, int filter)
     Imaging imOut;
     struct filter *filterp;
     float support, scale, filterscale;
-    float center, ww, ss, ss0, ss1, ss2, ss3;
+    float center, ww, ss;
     int xx, yy, x, kmax, xmin, xmax;
     int *xbounds;
     float *k, *kk;
@@ -198,52 +231,11 @@ ImagingResampleHorizontal(Imaging imIn, int xsize, int filter)
             switch(imIn->type) {
             case IMAGING_TYPE_UINT8:
                 /* n-bit grayscale */
-                if (imIn->bands == 2) {
-                    for (xx = 0; xx < xsize; xx++) {
-                        xmin = xbounds[xx * 2 + 0];
-                        xmax = xbounds[xx * 2 + 1];
-                        k = &kk[xx * kmax];
-                        ss0 = ss1 = 0.5;
-                        for (x = xmin; x < xmax; x++) {
-                            ss0 += i2f((UINT8) imIn->image[yy][x*4 + 0]) * k[x - xmin];
-                            ss1 += i2f((UINT8) imIn->image[yy][x*4 + 3]) * k[x - xmin];
-                        }
-                        imOut->image[yy][xx*4 + 0] = clip8(ss0);
-                        imOut->image[yy][xx*4 + 3] = clip8(ss1);
-                    }
-                } else if (imIn->bands == 3) {
-                    for (xx = 0; xx < xsize; xx++) {
-                        xmin = xbounds[xx * 2 + 0];
-                        xmax = xbounds[xx * 2 + 1];
-                        k = &kk[xx * kmax];
-                        ss0 = ss1 = ss2 = 0.5;
-                        for (x = xmin; x < xmax; x++) {
-                            ss0 += i2f((UINT8) imIn->image[yy][x*4 + 0]) * k[x - xmin];
-                            ss1 += i2f((UINT8) imIn->image[yy][x*4 + 1]) * k[x - xmin];
-                            ss2 += i2f((UINT8) imIn->image[yy][x*4 + 2]) * k[x - xmin];
-                        }
-                        imOut->image[yy][xx*4 + 0] = clip8(ss0);
-                        imOut->image[yy][xx*4 + 1] = clip8(ss1);
-                        imOut->image[yy][xx*4 + 2] = clip8(ss2);
-                    }
-                } else {
-                    for (xx = 0; xx < xsize; xx++) {
-                        xmin = xbounds[xx * 2 + 0];
-                        xmax = xbounds[xx * 2 + 1];
-                        k = &kk[xx * kmax];
-                        ss0 = ss1 = ss2 = ss3 = 0.5;
-                        for (x = xmin; x < xmax; x++) {
-                            ss0 += i2f((UINT8) imIn->image[yy][x*4 + 0]) * k[x - xmin];
-                            ss1 += i2f((UINT8) imIn->image[yy][x*4 + 1]) * k[x - xmin];
-                            ss2 += i2f((UINT8) imIn->image[yy][x*4 + 2]) * k[x - xmin];
-                            ss3 += i2f((UINT8) imIn->image[yy][x*4 + 3]) * k[x - xmin];
-                        }
-                        imOut->image[yy][xx*4 + 0] = clip8(ss0);
-                        imOut->image[yy][xx*4 + 1] = clip8(ss1);
-                        imOut->image[yy][xx*4 + 2] = clip8(ss2);
-                        imOut->image[yy][xx*4 + 3] = clip8(ss3);
-                    }
-                }
+                ImagingStretchHorizontalConvolution8u(
+                    (UINT32 *) imOut->image32[yy],
+                    (UINT32 *) imIn->image32[yy],
+                    xsize, xbounds, kk, kmax
+                );
                 break;
             case IMAGING_TYPE_INT32:
                 /* 32-bit integer */
