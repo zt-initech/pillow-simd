@@ -84,7 +84,7 @@ static inline UINT8 clip8(float in)
 
 
 void
-ImagingStretchHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
+ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
     int xsize, int *xbounds, float *kk, int kmax)
 {
     int xmin, xmax, xx, x;
@@ -92,7 +92,7 @@ ImagingStretchHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
 
     __m128i mmmax = _mm_set1_epi32(255);
     __m128i mmmin = _mm_set1_epi32(0);
-    __m128i shiftmask = _mm_set_epi8(0,0,0,0,0,0,0,0,0,0,0,0,0,4,8,12);
+    __m128i shiftmask = _mm_set_epi8(0,0,0,0,0,0,0,0,0,0,0,0,12,8,4,0);
 
     for (xx = 0; xx < xsize; xx++) {
         __m128 sss = _mm_set1_ps(0);
@@ -101,6 +101,30 @@ ImagingStretchHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
         k = &kk[xx * kmax];
         for (x = xmin; x < xmax; x++) {
             __m128i pix = _mm_cvtepu8_epi32(_mm_cvtsi32_si128(lineIn[x]));
+            __m128 mmk = _mm_set1_ps(k[x - xmin]);
+            __m128 mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
+            sss = _mm_add_ps(sss, mul);
+        }
+        __m128i ssi = _mm_cvtps_epi32(sss);
+        ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, ssi));
+        lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(ssi, shiftmask));
+    }
+}
+
+void
+ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
+    int xmin, int xmax, float *k)
+{
+    int x, xx;
+
+    __m128i mmmax = _mm_set1_epi32(255);
+    __m128i mmmin = _mm_set1_epi32(0);
+    __m128i shiftmask = _mm_set_epi8(0,0,0,0,0,0,0,0,0,0,0,0,12,8,4,0);
+    /* n-bit grayscale */
+    for (xx = 0; xx < imIn->xsize; xx++) {
+        __m128 sss = _mm_set1_ps(0);
+        for (x = xmin; x < xmax; x++) {
+            __m128i pix = _mm_cvtepu8_epi32(_mm_cvtsi32_si128(imIn->image32[x][xx]));
             __m128 mmk = _mm_set1_ps(k[x - xmin]);
             __m128 mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
             sss = _mm_add_ps(sss, mul);
@@ -243,7 +267,7 @@ ImagingResampleHorizontal(Imaging imIn, int xsize, int filter)
             switch(imIn->type) {
             case IMAGING_TYPE_UINT8:
                 /* n-bit grayscale */
-                ImagingStretchHorizontalConvolution8u(
+                ImagingResampleHorizontalConvolution8u(
                     (UINT32 *) imOut->image32[yy],
                     (UINT32 *) imIn->image32[yy],
                     xsize, xbounds, kk, kmax
@@ -284,9 +308,136 @@ ImagingResampleHorizontal(Imaging imIn, int xsize, int filter)
 
 
 Imaging
+ImagingResampleVertical(Imaging imIn, int ysize, int filter)
+{
+    ImagingSectionCookie cookie;
+    Imaging imOut;
+    struct filter *filterp;
+    float support, scale, filterscale;
+    float center, ww, ss;
+    int xx, yy, x, kmax, xmin, xmax;
+    float *k;
+
+    /* check filter */
+    switch (filter) {
+    case IMAGING_TRANSFORM_LANCZOS:
+        filterp = &LANCZOS;
+        break;
+    case IMAGING_TRANSFORM_BILINEAR:
+        filterp = &BILINEAR;
+        break;
+    case IMAGING_TRANSFORM_BICUBIC:
+        filterp = &BICUBIC;
+        break;
+    default:
+        return (Imaging) ImagingError_ValueError(
+            "unsupported resampling filter"
+            );
+    }
+
+    /* prepare for horizontal stretch */
+    filterscale = scale = (float) imIn->ysize / ysize;
+
+    /* determine support size (length of resampling filter) */
+    support = filterp->support;
+
+    if (filterscale < 1.0) {
+        filterscale = 1.0;
+    }
+
+    support = support * filterscale;
+
+    /* maximum number of coofs */
+    kmax = (int) ceil(support) * 2 + 1;
+
+    // sizeof(float) should be greater than 0
+    if (kmax > SIZE_MAX / sizeof(float))
+        return (Imaging) ImagingError_MemoryError();
+
+    /* coefficient buffer (with rounding safety margin) */
+    k = malloc(kmax * sizeof(float));
+    if ( ! k)
+        return (Imaging) ImagingError_MemoryError();
+
+    imOut = ImagingNew(imIn->mode, imIn->xsize, ysize);
+    if ( ! imOut) {
+        free(k);
+        return NULL;
+    }
+
+    ImagingSectionEnter(&cookie);
+    /* horizontal stretch */
+    for (yy = 0; yy < ysize; yy++) {
+        center = (yy + 0.5) * scale;
+        ww = 0.0;
+        ss = 1.0 / filterscale;
+        xmin = (int) floor(center - support);
+        if (xmin < 0)
+            xmin = 0;
+        xmax = (int) ceil(center + support);
+        if (xmax > imIn->ysize)
+            xmax = imIn->ysize;
+        for (x = xmin; x < xmax; x++) {
+            float w = filterp->filter((x - center + 0.5) * ss) * ss;
+            k[x - xmin] = w;
+            ww += w;
+        }
+        for (x = 0; x < xmax - xmin; x++) {
+            if (ww != 0.0)
+                k[x] /= ww;
+        }
+
+        if (imIn->image8) {
+            /* 8-bit grayscale */
+            for (xx = 0; xx < imIn->xsize; xx++) {
+                ss = 0.5;
+                for (x = xmin; x < xmax; x++)
+                    ss += i2f(imIn->image8[x][xx]) * k[x - xmin];
+                imOut->image8[yy][xx] = clip8(ss);
+            }
+        } else {
+            switch(imIn->type) {
+            case IMAGING_TYPE_UINT8:
+                /* n-bit grayscale */
+                ImagingResampleVerticalConvolution8u(
+                    (UINT32 *) imOut->image32[yy], imIn,
+                    xmin, xmax, k
+                );
+                break;
+            case IMAGING_TYPE_INT32:
+                /* 32-bit integer */
+                for (xx = 0; xx < imIn->xsize; xx++) {
+                    ss = 0.0;
+                    for (x = xmin; x < xmax; x++)
+                        ss += i2f(IMAGING_PIXEL_I(imIn, xx, x)) * k[x - xmin];
+                    IMAGING_PIXEL_I(imOut, xx, yy) = (int) ss;
+                }
+                break;
+            case IMAGING_TYPE_FLOAT32:
+                /* 32-bit float */
+                for (xx = 0; xx < imIn->xsize; xx++) {
+                    ss = 0.0;
+                    for (x = xmin; x < xmax; x++)
+                        ss += IMAGING_PIXEL_F(imIn, xx, x) * k[x - xmin];
+                    IMAGING_PIXEL_F(imOut, xx, yy) = ss;
+                }
+                break;
+            default:
+                ImagingSectionLeave(&cookie);
+                return (Imaging) ImagingError_ModeError();
+            }
+        }
+    }
+    ImagingSectionLeave(&cookie);
+    free(k);
+    return imOut;
+}
+
+
+Imaging
 ImagingResample(Imaging imIn, int xsize, int ysize, int filter)
 {
-    Imaging imTemp1, imTemp2, imTemp3;
+    Imaging imTemp;
     Imaging imOut;
 
     if (strcmp(imIn->mode, "P") == 0 || strcmp(imIn->mode, "1") == 0)
@@ -295,28 +446,21 @@ ImagingResample(Imaging imIn, int xsize, int ysize, int filter)
     if (imIn->type == IMAGING_TYPE_SPECIAL)
         return (Imaging) ImagingError_ModeError();
 
-    /* two-pass resize, first pass */
-    imTemp1 = ImagingResampleHorizontal(imIn, xsize, filter);
-    if ( ! imTemp1)
-        return NULL;
+    if (imIn->ysize * xsize <= imIn->xsize * ysize) {
+        imTemp = ImagingResampleHorizontal(imIn, xsize, filter);
+        if ( ! imTemp)
+            return NULL;
 
-    /* transpose image once */
-    imTemp2 = ImagingTransposeToNew(imTemp1);
-    ImagingDelete(imTemp1);
-    if ( ! imTemp2)
-        return NULL;
+        imOut = ImagingResampleVertical(imTemp, ysize, filter);
+        ImagingDelete(imTemp);
+    } else {
+        imTemp = ImagingResampleVertical(imIn, ysize, filter);
+        if ( ! imTemp)
+            return NULL;
 
-    /* second pass */
-    imTemp3 = ImagingResampleHorizontal(imTemp2, ysize, filter);
-    ImagingDelete(imTemp2);
-    if ( ! imTemp3)
-        return NULL;
-
-    /* transpose result */
-    imOut = ImagingTransposeToNew(imTemp3);
-    ImagingDelete(imTemp3);
-    if ( ! imOut)
-        return NULL;
+        imOut = ImagingResampleHorizontal(imTemp, xsize, filter);
+        ImagingDelete(imTemp);
+    }
 
     return imOut;
 }
