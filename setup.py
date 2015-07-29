@@ -90,7 +90,7 @@ except (ImportError, OSError):
 
 
 NAME = 'Pillow'
-PILLOW_VERSION = '2.9.0'
+PILLOW_VERSION = '2.9.0.sse1'
 TCL_ROOT = None
 JPEG_ROOT = None
 JPEG2K_ROOT = None
@@ -537,7 +537,8 @@ class pil_build_ext(build_ext):
             defs.append(("WORDS_BIGENDIAN", None))
 
         exts = [(Extension(
-            "PIL._imaging", files, libraries=libs, define_macros=defs))]
+            "PIL._imaging", files, libraries=libs, define_macros=defs,
+            extra_compile_args=['-msse4']))]
 
         #
         # additional libraries
