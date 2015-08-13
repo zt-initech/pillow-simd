@@ -90,7 +90,7 @@ except (ImportError, OSError):
 
 
 NAME = 'Pillow-SIMD'
-PILLOW_VERSION = '2.9.0.post0'
+PILLOW_VERSION = '2.9.0.post1'
 TCL_ROOT = None
 JPEG_ROOT = None
 JPEG2K_ROOT = None
