@@ -261,8 +261,8 @@ ImagingResampleHorizontal(Imaging imIn, int xsize, int filter)
                 xmax = xbounds[xx * 2 + 1];
                 k = &kk[xx * kmax];
                 ss = 0.5;
-                for (x = xmin; x < xmax; x++)
-                    ss += i2f(imIn->image8[yy][x]) * k[x - xmin];
+                for (x = 0; x < xmax; x++)
+                    ss += i2f(imIn->image8[yy][x + xmin]) * k[x];
                 imOut->image8[yy][xx] = clip8(ss);
             }
         } else {
@@ -282,8 +282,8 @@ ImagingResampleHorizontal(Imaging imIn, int xsize, int filter)
                     xmax = xbounds[xx * 2 + 1];
                     k = &kk[xx * kmax];
                     ss = 0.0;
-                    for (x = xmin; x < xmax; x++)
-                        ss += i2f(IMAGING_PIXEL_I(imIn, x, yy)) * k[x - xmin];
+                    for (x = 0; x < xmax; x++)
+                        ss += i2f(IMAGING_PIXEL_I(imIn, x + xmin, yy)) * k[x];
                     IMAGING_PIXEL_I(imOut, xx, yy) = (int) ss;
                 }
                 break;
@@ -294,8 +294,8 @@ ImagingResampleHorizontal(Imaging imIn, int xsize, int filter)
                     xmax = xbounds[xx * 2 + 1];
                     k = &kk[xx * kmax];
                     ss = 0.0;
-                    for (x = xmin; x < xmax; x++)
-                        ss += IMAGING_PIXEL_F(imIn, x, yy) * k[x - xmin];
+                    for (x = 0; x < xmax; x++)
+                        ss += IMAGING_PIXEL_F(imIn, x + xmin, yy) * k[x];
                     IMAGING_PIXEL_F(imOut, xx, yy) = ss;
                 }
                 break;
