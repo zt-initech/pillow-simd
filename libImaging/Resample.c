@@ -142,6 +142,7 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
         ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, ssi));
         lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(ssi, shiftmask));
     }
+#endif
 }
 
 void
@@ -166,7 +167,6 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
         ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, ssi));
         lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(ssi, shiftmask));
     }
-#endif
 }
 
 
