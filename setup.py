@@ -87,8 +87,8 @@ except (ImportError, OSError):
     # pypy emits an oserror
     _tkinter = None
 
-NAME = 'Pillow'
-PILLOW_VERSION = '3.2.0'
+NAME = 'Pillow-SIMD'
+PILLOW_VERSION = '3.2.0.post0'
 TCL_ROOT = None
 JPEG_ROOT = None
 JPEG2K_ROOT = None
@@ -547,7 +547,8 @@ class pil_build_ext(build_ext):
         exts = [(Extension("PIL._imaging",
                            files,
                            libraries=libs,
-                           define_macros=defs))]
+                           define_macros=defs,
+                           extra_compile_args=['-msse4']))]
 
         #
         # additional libraries
