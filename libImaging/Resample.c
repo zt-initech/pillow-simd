@@ -20,6 +20,10 @@
 #include <mmintrin.h>
 #include <smmintrin.h>
 
+#if defined(__AVX2__)
+    #include <immintrin.h>
+#endif
+
 
 struct filter {
     float (*filter)(float x);
@@ -94,6 +98,35 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
     __m128i mmmin = _mm_set1_epi32(0);
     __m128i shiftmask = _mm_set_epi8(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,12,8,4,0);
 
+#if defined(__AVX2__)
+    for (xx = 0; xx < xsize; xx++) {
+        __m256 sss = _mm256_setzero_ps();
+        xmin = xbounds[xx * 2 + 0];
+        xmax = xbounds[xx * 2 + 1] - 1;
+        k = &kk[xx * kmax];
+
+        for (x = 0; x < xmax; x+=2) {
+            __m256 mmk = _mm256_set1_ps(k[x]);
+            mmk = _mm256_insertf128_ps(mmk, _mm_set1_ps(k[x + 1]), 1);
+            __m256i pix = _mm256_cvtepu8_epi32(_mm_set_epi64x(0,  *((uint64_t *)&lineIn[x + xmin]) ));
+            __m256 mul = _mm256_mul_ps(mmk, _mm256_cvtepi32_ps(pix));
+            sss = _mm256_add_ps(sss, mul);
+        }
+        __m128 sss0 = _mm256_extractf128_ps(sss, 0);
+        __m128 sss1 = _mm256_extractf128_ps(sss, 1);
+
+        if ( ! (xmax & 1)) {
+            __m128i pix = _mm_cvtepu8_epi32(_mm_cvtsi32_si128(lineIn[xmin + xmax]));
+            __m128 mmk = _mm_set1_ps(k[xmax]);
+            __m128 mul = _mm_mul_ps(mmk, _mm_cvtepi32_ps(pix));
+            sss0 = _mm_add_ps(sss0, mul);
+        }
+
+        __m128i ssi = _mm_cvtps_epi32(_mm_add_ps(sss0, sss1));
+        ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, ssi));
+        lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(ssi, shiftmask));
+    }
+#else
     for (xx = 0; xx < xsize; xx++) {
         __m128 sss = _mm_setzero_ps();
         xmin = xbounds[xx * 2 + 0];
@@ -133,6 +166,7 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
         ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, ssi));
         lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(ssi, shiftmask));
     }
+#endif
 }
 
 
