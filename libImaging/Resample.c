@@ -480,21 +480,12 @@ ImagingResample(Imaging imIn, int xsize, int ysize, int filter)
     if (imIn->type == IMAGING_TYPE_SPECIAL)
         return (Imaging) ImagingError_ModeError();
 
-    if (imIn->ysize * xsize <= imIn->xsize * ysize) {
-        imTemp = ImagingResampleHorizontal(imIn, xsize, filter);
-        if ( ! imTemp)
-            return NULL;
+    imTemp = ImagingResampleHorizontal(imIn, xsize, filter);
+    if ( ! imTemp)
+        return NULL;
 
-        imOut = ImagingResampleVertical(imTemp, ysize, filter);
-        ImagingDelete(imTemp);
-    } else {
-        imTemp = ImagingResampleVertical(imIn, ysize, filter);
-        if ( ! imTemp)
-            return NULL;
-
-        imOut = ImagingResampleHorizontal(imTemp, xsize, filter);
-        ImagingDelete(imTemp);
-    }
+    imOut = ImagingResampleVertical(imTemp, ysize, filter);
+    ImagingDelete(imTemp);
 
     return imOut;
 }
