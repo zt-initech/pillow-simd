@@ -32,7 +32,7 @@ and AVX2 support.
 ## Status
 
 Pillow-SIMD can be used in production. Pillow-SIMD operates on
-[Uploadcare](https://uploadcare.com/) serverse for more than 1 year.
+[Uploadcare](https://uploadcare.com/) servers for more than 1 year.
 Uploadcare is SAAS for image storing and processing in the cloud
 and the main sponsor of Pillow-SIMD project.
 
@@ -80,17 +80,21 @@ Source    | Operation           | Filter  | IM   | Pillow | SIMD SSE4 | SIMD AVX
           |                     | 100px   | 0.4  | 16.4   | 36.2
 
 
-### Some conclusions
+### Some conclusion
 
-Pillow is always faster than ImagMagick and
-Pillow-SIMD is always faster than Pillow.
+Pillow is always faster than ImageMagick. And Pillow-SIMD is always faster
+than Pillow in 2—2.5 time. In general Pillow-SIMD with AVX2 almost always
+**10 times faster** than ImageMagick.
 
 ### Methodology
 
 All tests done on Ubuntu 14.04 64-bit runing on
-Intel Core i5 4258U with AVX2 CPU.
+Intel Core i5 4258U with AVX2 CPU on single thread.
 
-Following script were using for tests:
+ImageMagick performance measured with command-line tool `convert` with
+`-verbose` and `-bench` arguments
+
+Following script were used for testing:
 https://gist.github.com/homm/f9b8d8a84a57a7e51f9c2a5828e40e63
 
 
@@ -103,15 +107,30 @@ benchmakrs. And result is
 ## Why Pillow-SIMD is even faster
 
 
+## Why not to contribute SIMD to the original Pillow
+
+
 ## Installation
+
+In general you need to do `pip install pillow-simd` as always and if you
+are using SSE4-capable CPU everything should run smoothly.
+Do not forget to remove original Pillow package first.
+
+If you want AVX2-enabled version, you need to pass additional flag to C
+compiller. The easiest way to do that is define `CC` variable while compilation.
+
+```bash
+$ pip uninstall pillow
+$ CC="cc -mavx2" pip install -U --force-reinstall pillow-simd
+```
 
 
 ## Contributing to Pillow-SIMD
 
 **Important.** Pillow-SIMD and Pillow are two separate projects.
 Please submit bugs and improvements not related to SIMD to 
-[original Pillow][original-issues].
-All bugs and fixes in Pillow will appear in next Pillow-SIMD version automatically.
+[original Pillow][original-issues]. All bugs and fixes in Pillow
+will appear in next Pillow-SIMD version automatically.
 
 
   [original-docs]: http://pillow.readthedocs.io/
