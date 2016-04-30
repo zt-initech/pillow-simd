@@ -36,7 +36,7 @@ Pillow-SIMD can be used in production. Pillow-SIMD operates on
 Uploadcare is SAAS for image storing and processing in the cloud
 and the main sponsor of Pillow-SIMD project.
 
-Cuurently, following methods are accelerated:
+Currently, following methods are accelerated:
 
 - Resize (convolustion-based resample): SSE4, AVX2
 - Gaussian and box blur: SSE4
@@ -82,7 +82,7 @@ Source    | Operation               | Filter  | IM   | Pillow | SIMD SSE4 | SIMD
 
 ### Some conclusion
 
-Pillow is always faster than ImageMagick. And Pillow-SIMD is always faster
+Pillow is always faster than ImageMagick. And Pillow-SIMD is faster
 than Pillow in 2—2.5 time. In general Pillow-SIMD with AVX2 almost always
 **10 times faster** than ImageMagick.
 
@@ -93,7 +93,7 @@ Intel Core i5 4258U with AVX2 CPU on single thread.
 
 ImageMagick performance measured with command-line tool `convert` with
 `-verbose` and `-bench` arguments. I'm using command line because
-I needed to test latest version and this is to easist way to do that.
+I need to test latest version and this is the easist way to do that.
 All operations are producing exactly the same result.
 Resizing filters compliance:
 
@@ -122,8 +122,8 @@ benchmakrs. And result is
 
 ## Why not to contribute SIMD to the original Pillow
 
-Well, this is not so simple. First of all, Pillow support large number
-of architectures, not only x86. But even for x86 platforms Pillow orfen
+Well, this is not so simple. First of all, Pillow supports large number
+of architectures, not only x86. But even for x86 platforms Pillow often
 distributed via precompiled binaries. To integrate SIMD in precompiled binaries
 we need to do runtime checks of CPU capabilites.
 To compile code with runtime checks we need to pass `-mavx2` option
@@ -152,7 +152,7 @@ $ CC="cc -mavx2" pip install -U --force-reinstall pillow-simd
 
 ## Contributing to Pillow-SIMD
 
-**Important.** Pillow-SIMD and Pillow are two separate projects.
+Pillow-SIMD and Pillow are two separate projects.
 Please submit bugs and improvements not related to SIMD to 
 [original Pillow][original-issues]. All bugs and fixes in Pillow
 will appear in next Pillow-SIMD version automatically.
