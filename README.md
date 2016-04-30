@@ -116,11 +116,14 @@ https://gist.github.com/homm/f9b8d8a84a57a7e51f9c2a5828e40e63
 
 There are no cheats. High-quality resize and blur methods are used for all
 benchmarks. Results are almost pixel-perfect. The difference only in effective
-algorithms 
+algorithms. Resampling in Pillow was rewriten in version 2.7 with 
+minimal usage on floating point numbers, precomputed coefficients and
+cache-awareness transposition.
 
 
 ## Why Pillow-SIMD is even faster
 
+Because of SIMD, of course. 
 
 
 ## Why do not contribute SIMD to the original Pillow
