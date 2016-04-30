@@ -13,16 +13,16 @@ For more information about original Pillow, please
 There are many ways to improve performance of image processing.
 You can use better algorithms for the same task, you can make better
 implementation for current algorithms, or you can use more processing unit
-resources. It is perfect, when you can just use more efficient algirithm like
+resources. It is perfect when you can just use more efficient algirithm like
 when gaussian blur based on convolutions [was replaced][gaussian-blur-changes]
-with sequential box filters. But the number of such improvements is very limited.
+by sequential box filters. But a number of such improvements is very limited.
 It is also very tempting to use more processor unit resources 
 (via parallelization), when they are available. But it is more handy just
 to make things faster on the same resources. And that is where SIMD works better.
 
 SIMD stands for "single instruction, multiple data". This is a way to perform
 same operations against the huge amount of homogeneous data. 
-Modern CPU have differnt SIMD instructions sets, like
+Modern CPU have differnt SIMD instructions sets like
 MMX, SSE-SSE4, AVX, AVX2, AVX512, NEON.
 
 Currently, Pillow-SIMD can be [compiled](#installation) with SSE4 (default)
@@ -31,12 +31,12 @@ and AVX2 support.
 
 ## Status
 
-Pillow-SIMD can be used in production. Pillow-SIMD operates on
+Pillow-SIMD can be used in production. Pillow-SIMD has been operating on
 [Uploadcare](https://uploadcare.com/) servers for more than 1 year.
 Uploadcare is SAAS for image storing and processing in the cloud
 and the main sponsor of Pillow-SIMD project.
 
-Currently, following methods are accelerated:
+Currently, following operations are accelerated:
 
 - Resize (convolustion-based resample): SSE4, AVX2
 - Gaussian and box blur: SSE4
@@ -44,8 +44,8 @@ Currently, following methods are accelerated:
 
 ## Benchmarks
 
-The numbers are processed megapixels of source image per second.
-For example if resize of 7712x4352 image is done in 0.5 seconds,
+The numbers in the table represent processed megapixels of source image
+per second. For example, if resize of 7712×4352 image is done in 0.5 seconds,
 the result will be 61.7 Mpx/s.
 
 - ImageMagick 6.9.3-8 Q8 x86_64
@@ -54,7 +54,7 @@ the result will be 61.7 Mpx/s.
 
 Source    | Operation               | Filter  | IM   | Pillow | SIMD SSE4 | SIMD AVX2 
 ----------|-------------------------|---------|------|--------|-----------|-----------
-7712x4352 | **Resize to 16x16**     | Bilinear| 27.0 | 217    | 456       | 545
+7712×4352 | **Resize to 16x16**     | Bilinear| 27.0 | 217    | 456       | 545
           |                         | Bicubic | 10.9 | 115    | 240       | 278
           |                         | Lanczos | 6.6  | 76.1   | 162       | 194
           | **Resize to 320x180**   | Bilinear| 32.0 | 166    | 354       | 410
@@ -66,7 +66,7 @@ Source    | Operation               | Filter  | IM   | Pillow | SIMD SSE4 | SIMD
           | **Blur**                | 1px     | 8.1  | 17.1   | 37.8
           |                         | 10px    | 2.6  | 17.4   | 39.0
           |                         | 100px   | 0.3  | 17.2   | 39.0
-1920x1280 | **Resize to 16x16**     | Bilinear| 41.6 | 196    | 422       | 489
+1920×1280 | **Resize to 16x16**     | Bilinear| 41.6 | 196    | 422       | 489
           |                         | Bicubic | 18.9 | 102    | 225       | 263
           |                         | Lanczos | 13.7 | 68.6   | 118       | 167
           | **Resize to 320x180**   | Bilinear| 27.6 | 111    | 196       | 197
@@ -83,66 +83,68 @@ Source    | Operation               | Filter  | IM   | Pillow | SIMD SSE4 | SIMD
 ### Some conclusion
 
 Pillow is always faster than ImageMagick. And Pillow-SIMD is faster
-than Pillow in 2—2.5 time. In general Pillow-SIMD with AVX2 almost always
+than Pillow in 2—2.5 time. In general, Pillow-SIMD with AVX2 almost always
 **10 times faster** than ImageMagick.
 
 ### Methodology
 
-All tests done on Ubuntu 14.04 64-bit runing on
+All tests were performed on Ubuntu 14.04 64-bit runing on
 Intel Core i5 4258U with AVX2 CPU on single thread.
 
-ImageMagick performance measured with command-line tool `convert` with
-`-verbose` and `-bench` arguments. I'm using command line because
+ImageMagick performance was measured with command-line tool `convert` with
+`-verbose` and `-bench` arguments. I use command line because
 I need to test latest version and this is the easist way to do that.
-All operations are producing exactly the same result.
+
+All operations produce exactly the same results.
 Resizing filters compliance:
 
 - PIL.Image.BILINEAR == Triangle
 - PIL.Image.BICUBIC == Catrom
 - PIL.Image.LANCZOS == Lanczos
 
-In ImageMagick the radius of gaussian blur called sigma and second parameter
-is called radius. In fact there should not be additional parameters for
+In ImageMagick the radius of gaussian blur is called sigma and second parameter
+is called radius. In fact, there should not be additional parameters for
 *gaussian blur*, because if the radius is too small, this is *not*
-gaussian blur anymore. And if the radius is big, this does not give any
+gaussian blur anymore. And if the radius is big this does not give any
 advantages, but makes operation slower. For test I set radius to sigma × 2.5.
 
-Following script were used for testing:
+Following script was used for testing:
 https://gist.github.com/homm/f9b8d8a84a57a7e51f9c2a5828e40e63
 
 
 ## Why Pillow itself is so fast
 
 There are no cheats. High-quality resize and blur methods are used for all
-benchmakrs. And result is 
+benchmarks. Results are almost pixel-perfect. The difference only in effective
+algorithms 
 
 
 ## Why Pillow-SIMD is even faster
 
 
-## Why not to contribute SIMD to the original Pillow
 
-Well, this is not so simple. First of all, Pillow supports large number
-of architectures, not only x86. But even for x86 platforms Pillow often
+## Why do not contribute SIMD to the original Pillow
+
+Well, it's not that simple. First of all, Pillow supports a large number
+of architectures, not only x86. But even for x86 platforms Pillow is often
 distributed via precompiled binaries. To integrate SIMD in precompiled binaries
 we need to do runtime checks of CPU capabilites.
 To compile code with runtime checks we need to pass `-mavx2` option
-to compiller. But this automaticaly activates all `if (__AVX2__)` and below
-conditions. And SIMD instructions under such conditions are exist
+to the compiler. However this automaticaly activates all `if (__AVX2__)`
+and below conditions. And SIMD instructions under such conditions are exist
 even in standard C library and they do not have any runtime checks.
-Currently I don't know a way how to tell to compiller to allow SIMD
-instrustions in the code but *do not allow* using such instructions without
-runtime checks.
+Currently, I don't know how to allow SIMD instructions in the code
+but *do not allow* such instructions without runtime checks.
 
 
 ## Installation
 
-In general you need to do `pip install pillow-simd` as always and if you
+In general, you need to do `pip install pillow-simd` as always and if you
 are using SSE4-capable CPU everything should run smoothly.
 Do not forget to remove original Pillow package first.
 
 If you want AVX2-enabled version, you need to pass additional flag to C
-compiller. The easiest way to do that is define `CC` variable while compilation.
+compiler. The easiest way to do that is define `CC` variable while compilation.
 
 ```bash
 $ pip uninstall pillow
