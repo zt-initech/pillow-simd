@@ -123,7 +123,17 @@ cache-awareness transposition.
 
 ## Why Pillow-SIMD is even faster
 
-Because of SIMD, of course. 
+Because of SIMD, of course. There are some ideas how to achieve even better
+performance.
+
+- **Efficient work with memory** Currently, each pixel is readed from 
+  memory to the SSE register, while every SSE register can handle
+  four pixels at once.
+- **Integer-based arithmetic** Experiments show that integer-based arithmetic
+  does not affects the quality and increases performance of non-SIMD code
+  up to 50%, but unfortunately give no advantages on SIMD version.
+- **Aligned pixels allocation** Well-known that the SIMD load and store
+  commands works better with aligned memory.
 
 
 ## Why do not contribute SIMD to the original Pillow
