@@ -32,7 +32,7 @@ and AVX2 support.
 ## Status
 
 Pillow-SIMD can be used in production. Pillow-SIMD has been operating on
-[Uploadcare](https://uploadcare.com/) servers for more than 1 year.
+[Uploadcare][uploadcare.com] servers for more than 1 year.
 Uploadcare is SAAS for image storing and processing in the cloud
 and the main sponsor of Pillow-SIMD project.
 
@@ -179,3 +179,4 @@ will appear in next Pillow-SIMD version automatically.
   [original-changelog]: https://github.com/python-pillow/Pillow/blob/master/CHANGES.rst
   [original-contribute]: https://github.com/python-pillow/Pillow/blob/master/.github/CONTRIBUTING.md
   [gaussian-blur-changes]: http://pillow.readthedocs.io/en/3.2.x/releasenotes/2.7.0.html#gaussian-blur-and-unsharp-mask
+  [uploadcare.com]: https://uploadcare.com/?utm_source=github&utm_medium=description&utm_campaign=pillow-simd
