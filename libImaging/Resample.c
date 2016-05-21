@@ -128,17 +128,46 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
     }
 #else
     for (xx = 0; xx < xsize; xx++) {
-        __m128 sss = _mm_setzero_ps();
+        __m128i pix;
+        __m128 mmk, mul;
+        __m128 sss0 = _mm_setzero_ps();
         xmin = xbounds[xx * 2 + 0];
-        xmax = xbounds[xx * 2 + 1];
+        xmax = xbounds[xx * 2 + 1] - 3;
         k = &kk[xx * kmax];
-        for (x = 0; x < xmax; x++) {
-            __m128i pix = _mm_cvtepu8_epi32(*(__m128i *) &lineIn[x + xmin]);
-            __m128 mmk = _mm_set1_ps(k[x]);
-            __m128 mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
-            sss = _mm_add_ps(sss, mul);
+        x = 0;
+
+        for (; x < xmax; x += 4) {
+            __m128i source = _mm_loadu_si128((__m128i *) &lineIn[x + xmin]);
+            __m128 sourcek = _mm_loadu_ps(&k[x]);
+
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,3, -1,-1,-1,2, -1,-1,-1,1, -1,-1,-1,0));
+            mmk = _mm_shuffle_ps(sourcek, sourcek, _MM_SHUFFLE(0, 0, 0, 0));
+            mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
+            sss0 = _mm_add_ps(sss0, mul);
+
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,7, -1,-1,-1,6, -1,-1,-1,5, -1,-1,-1,4));
+            mmk = _mm_shuffle_ps(sourcek, sourcek, _MM_SHUFFLE(1, 1, 1, 1));
+            mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
+            sss0 = _mm_add_ps(sss0, mul);
+
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,11, -1,-1,-1,10, -1,-1,-1,9, -1,-1,-1,8));
+            mmk = _mm_shuffle_ps(sourcek, sourcek, _MM_SHUFFLE(2, 2, 2, 2));
+            mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
+            sss0 = _mm_add_ps(sss0, mul);
+
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,15, -1,-1,-1,14, -1,-1,-1,13, -1,-1,-1,12));
+            mmk = _mm_shuffle_ps(sourcek, sourcek, _MM_SHUFFLE(3, 3, 3, 3));
+            mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
+            sss0 = _mm_add_ps(sss0, mul);
         }
-        __m128i ssi = _mm_cvtps_epi32(sss);
+        xmax += 3;
+        for (; x < xmax; x++) {
+            pix = _mm_cvtepu8_epi32(*(__m128i *) &lineIn[x + xmin]);
+            mmk = _mm_set1_ps(k[x]);
+            mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
+            sss0 = _mm_add_ps(sss0, mul);
+        }
+        __m128i ssi = _mm_cvtps_epi32(sss0);
         ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, ssi));
         lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(ssi, shiftmask));
     }
