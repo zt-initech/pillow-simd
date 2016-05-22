@@ -69,8 +69,8 @@ Source    | Operation               | Filter  | IM   | Pillow | SIMD SSE4 | SIMD
 1920×1280 | **Resize to 16x16**     | Bilinear| 41.6 | 196    | 426       | 750
           |                         | Bicubic | 18.9 | 102    | 221       | 379
           |                         | Lanczos | 13.7 | 68.6   | 140       | 227
-          | **Resize to 320x180**   | Bilinear| 27.6 | 111    | 303       | 303
-          |                         | Bicubic | 14.5 | 66.3   | 264       | 230
+          | **Resize to 320x180**   | Bilinear| 27.6 | 111    | 303       | 346
+          |                         | Bicubic | 14.5 | 66.3   | 164       | 230
           |                         | Lanczos | 9.8  | 44.3   | 108       | 143
           | **Resize to 2048x1155** | Bilinear| 9.1  | 20.7   | 71.1      | 69.6
           |                         | Bicubic | 6.3  | 16.9   | 53.8      | 53.1
