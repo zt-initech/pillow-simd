@@ -54,27 +54,27 @@ the result will be 67.1 Mpx/s.
 
 Source    | Operation               | Filter  | IM   | Pillow | SIMD SSE4 | SIMD AVX2 
 ----------|-------------------------|---------|------|--------|-----------|-----------
-7712×4352 | **Resize to 16x16**     | Bilinear| 27.0 | 217    | 456       | 545
-          |                         | Bicubic | 10.9 | 115    | 240       | 278
-          |                         | Lanczos | 6.6  | 76.1   | 162       | 194
-          | **Resize to 320x180**   | Bilinear| 32.0 | 166    | 354       | 410
-          |                         | Bicubic | 16.5 | 92.3   | 198       | 204
-          |                         | Lanczos | 11.0 | 63.2   | 133       | 147
-          | **Resize to 2048x1155** | Bilinear| 20.7 | 87.6   | 202       | 217
-          |                         | Bicubic | 12.2 | 65.7   | 126       | 130
-          |                         | Lanczos | 8.7  | 41.3   | 88.2      | 95.6
+7712×4352 | **Resize to 16x16**     | Bilinear| 27.0 | 217    | 437       | 710
+          |                         | Bicubic | 10.9 | 115    | 232       | 391
+          |                         | Lanczos | 6.6  | 76.1   | 157       | 265
+          | **Resize to 320x180**   | Bilinear| 32.0 | 166    | 410       | 612
+          |                         | Bicubic | 16.5 | 92.3   | 211       | 344
+          |                         | Lanczos | 11.0 | 63.2   | 136       | 223
+          | **Resize to 2048x1155** | Bilinear| 20.7 | 87.6   | 229       | 265
+          |                         | Bicubic | 12.2 | 65.7   | 140       | 171
+          |                         | Lanczos | 8.7  | 41.3   | 100       | 126
           | **Blur**                | 1px     | 8.1  | 17.1   | 37.8
           |                         | 10px    | 2.6  | 17.4   | 39.0
           |                         | 100px   | 0.3  | 17.2   | 39.0
-1920×1280 | **Resize to 16x16**     | Bilinear| 41.6 | 196    | 422       | 489
-          |                         | Bicubic | 18.9 | 102    | 225       | 263
-          |                         | Lanczos | 13.7 | 68.6   | 118       | 167
-          | **Resize to 320x180**   | Bilinear| 27.6 | 111    | 196       | 197
-          |                         | Bicubic | 14.5 | 66.3   | 154       | 162
-          |                         | Lanczos | 9.8  | 44.3   | 102       | 107
-          | **Resize to 2048x1155** | Bilinear| 9.1  | 20.7   | 71.3      | 72.6
-          |                         | Bicubic | 6.3  | 16.9   | 49.3      | 54.3
-          |                         | Lanczos | 4.7  | 14.6   | 36.8      | 40.6
+1920×1280 | **Resize to 16x16**     | Bilinear| 41.6 | 196    | 426       | 750
+          |                         | Bicubic | 18.9 | 102    | 221       | 379
+          |                         | Lanczos | 13.7 | 68.6   | 140       | 227
+          | **Resize to 320x180**   | Bilinear| 27.6 | 111    | 303       | 303
+          |                         | Bicubic | 14.5 | 66.3   | 264       | 230
+          |                         | Lanczos | 9.8  | 44.3   | 108       | 143
+          | **Resize to 2048x1155** | Bilinear| 9.1  | 20.7   | 71.1      | 69.6
+          |                         | Bicubic | 6.3  | 16.9   | 53.8      | 53.1
+          |                         | Lanczos | 4.7  | 14.6   | 40.7      | 41.7
           | **Blur**                | 1px     | 8.7  | 16.2   | 35.7
           |                         | 10px    | 2.8  | 16.7   | 35.4
           |                         | 100px   | 0.4  | 16.4   | 36.2
@@ -84,7 +84,7 @@ Source    | Operation               | Filter  | IM   | Pillow | SIMD SSE4 | SIMD
 
 Pillow is always faster than ImageMagick. And Pillow-SIMD is faster
 than Pillow in 2—2.5 times. In general, Pillow-SIMD with AVX2 almost always
-**10 times faster** than ImageMagick.
+**10-15 times faster** than ImageMagick.
 
 ### Methodology
 
