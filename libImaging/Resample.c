@@ -112,6 +112,42 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
         __m256 mmk256, mul256;
         __m256 sss256 = _mm256_setzero_ps();
 
+        for (; x < xmax - 7; x += 8) {
+            __m256i source = _mm256_loadu_si256((__m256i *) &lineIn[x + xmin]);
+
+            // pix256 = _mm256_shuffle_epi8(source, _mm256_set_epi8(
+            //     -1,-1,-1,7, -1,-1,-1,6, -1,-1,-1,5, -1,-1,-1,4,
+            //     -1,-1,-1,3, -1,-1,-1,2, -1,-1,-1,1, -1,-1,-1,0));
+            pix256 = _mm256_cvtepu8_epi32(_mm_set_epi64x(0,  *((uint64_t *)&lineIn[x + xmin]) ));
+            mmk256 = _mm256_insertf128_ps(_mm256_set1_ps(k[x + 0]), _mm_set1_ps(k[x + 1]), 1);
+            mul256 = _mm256_mul_ps(_mm256_cvtepi32_ps(pix256), mmk256);
+            sss256 = _mm256_add_ps(sss256, mul256);
+
+            // pix256 = _mm256_shuffle_epi8(source, _mm256_set_epi8(
+            //     -1,-1,-1,15, -1,-1,-1,14, -1,-1,-1,13, -1,-1,-1,12,
+            //     -1,-1,-1,11, -1,-1,-1,10, -1,-1,-1,9, -1,-1,-1,8));
+            pix256 = _mm256_cvtepu8_epi32(_mm_set_epi64x(0,  *((uint64_t *)&lineIn[x + xmin + 2]) ));
+            mmk256 = _mm256_insertf128_ps(_mm256_set1_ps(k[x + 2]), _mm_set1_ps(k[x + 3]), 1);
+            mul256 = _mm256_mul_ps(_mm256_cvtepi32_ps(pix256), mmk256);
+            sss256 = _mm256_add_ps(sss256, mul256);
+
+            // pix256 = _mm256_shuffle_epi8(source, _mm256_set_epi8(
+            //     -1,-1,-1,23, -1,-1,-1,22, -1,-1,-1,21, -1,-1,-1,20,
+            //     -1,-1,-1,19, -1,-1,-1,18, -1,-1,-1,17, -1,-1,-1,16));
+            pix256 = _mm256_cvtepu8_epi32(_mm_set_epi64x(0,  *((uint64_t *)&lineIn[x + xmin + 4]) ));
+            mmk256 = _mm256_insertf128_ps(_mm256_set1_ps(k[x + 4]), _mm_set1_ps(k[x + 5]), 1);
+            mul256 = _mm256_mul_ps(_mm256_cvtepi32_ps(pix256), mmk256);
+            sss256 = _mm256_add_ps(sss256, mul256);
+
+            // pix256 = _mm256_shuffle_epi8(source, _mm256_set_epi8(
+            //     -1,-1,-1,31, -1,-1,-1,30, -1,-1,-1,29, -1,-1,-1,28,
+            //     -1,-1,-1,27, -1,-1,-1,26, -1,-1,-1,25, -1,-1,-1,24));
+            pix256 = _mm256_cvtepu8_epi32(_mm_set_epi64x(0,  *((uint64_t *)&lineIn[x + xmin + 6]) ));
+            mmk256 = _mm256_insertf128_ps(_mm256_set1_ps(k[x + 6]), _mm_set1_ps(k[x + 7]), 1);
+            mul256 = _mm256_mul_ps(_mm256_cvtepi32_ps(pix256), mmk256);
+            sss256 = _mm256_add_ps(sss256, mul256);
+        }
+
         for (; x < xmax - 1; x += 2) {
             pix256 = _mm256_cvtepu8_epi32(_mm_set_epi64x(0,  *((uint64_t *)&lineIn[x + xmin]) ));
             mmk256 = _mm256_insertf128_ps(_mm256_set1_ps(k[x]), _mm_set1_ps(k[x + 1]), 1);
