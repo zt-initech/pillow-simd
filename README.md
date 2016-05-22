@@ -50,7 +50,7 @@ the result will be 67.1 Mpx/s.
 
 - ImageMagick 6.9.3-8 Q8 x86_64
 - Pillow 3.2.0
-- Pillow-SIMD 3.2.0.post1
+- Pillow-SIMD 3.2.0.post2
 
 Source    | Operation               | Filter  | IM   | Pillow | SIMD SSE4 | SIMD AVX2 
 ----------|-------------------------|---------|------|--------|-----------|-----------
