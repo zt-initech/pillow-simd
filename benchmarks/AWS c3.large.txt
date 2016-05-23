@@ -1,0 +1,94 @@
+AWS Server c4.large
+===================
+
+Intel(R) Xeon(R) CPU E5-2680 v2 @ 2.80GHz
+
+>>> Test          | Mean time  | Mean perf   | Min time   | Max perf
+
+
+Pillow 3.2.0
+------------
+>>> 16x16 bil       0.15702 s   203.85 Mpx/s  0.15694 s   203.95 Mpx/s
+>>> 16x16 bic       0.30225 s   105.90 Mpx/s  0.30218 s   105.92 Mpx/s
+>>> 16x16 lzs       0.45042 s    71.06 Mpx/s  0.45030 s    71.08 Mpx/s
+>>> 320x180 bil     0.19423 s   164.79 Mpx/s  0.19406 s   164.93 Mpx/s
+>>> 320x180 bic     0.35966 s    88.99 Mpx/s  0.35950 s    89.04 Mpx/s
+>>> 320x180 lzs     0.54002 s    59.27 Mpx/s  0.53978 s    59.30 Mpx/s
+>>> 2048x1155 bil   0.37278 s    85.86 Mpx/s  0.37165 s    86.12 Mpx/s
+>>> 2048x1155 bic   0.57772 s    55.40 Mpx/s  0.57549 s    55.62 Mpx/s
+>>> 2048x1155 lzs   0.79773 s    40.12 Mpx/s  0.79592 s    40.21 Mpx/s
+>>> blur 1px        2.22675 s    14.37 Mpx/s  2.19749 s    14.57 Mpx/s
+>>> blur 10px       2.22778 s    14.37 Mpx/s  2.20246 s    14.53 Mpx/s
+>>> blur 100px      2.23059 s    14.35 Mpx/s  2.21227 s    14.47 Mpx/s
+
+
+Pillow 3.3.0
+------------
+>>> 16x16 bil       0.09532 s   335.79 Mpx/s  0.09524 s   336.07 Mpx/s
+>>> 16x16 bic       0.18244 s   175.45 Mpx/s  0.18239 s   175.49 Mpx/s
+>>> 16x16 lzs       0.27664 s   115.70 Mpx/s  0.27644 s   115.78 Mpx/s
+>>> 320x180 bil     0.13193 s   242.62 Mpx/s  0.13170 s   243.04 Mpx/s
+>>> 320x180 bic     0.23135 s   138.35 Mpx/s  0.23109 s   138.51 Mpx/s
+>>> 320x180 lzs     0.34595 s    92.52 Mpx/s  0.34559 s    92.62 Mpx/s
+>>> 2048x1155 bil   0.31985 s   100.07 Mpx/s  0.31817 s   100.60 Mpx/s
+>>> 2048x1155 bic   0.44270 s    72.30 Mpx/s  0.44103 s    72.57 Mpx/s
+>>> 2048x1155 lzs   0.58627 s    54.60 Mpx/s  0.58208 s    54.99 Mpx/s
+>>> blur 1px        2.22675 s    14.37 Mpx/s  2.19749 s    14.57 Mpx/s
+>>> blur 10px       2.22778 s    14.37 Mpx/s  2.20246 s    14.53 Mpx/s
+>>> blur 100px      2.23059 s    14.35 Mpx/s  2.21227 s    14.47 Mpx/s
+
+
+Pillow-SIMD 3.2.0.post2
+-----------------------
+
+SSE4 (default)
+~~~~~~~~~~~~~~
+>>> 16x16 bil       0.06640 s   482.06 Mpx/s  0.06635 s   482.43 Mpx/s
+>>> 16x16 bic       0.12732 s   251.39 Mpx/s  0.12728 s   251.48 Mpx/s
+>>> 16x16 lzs       0.19724 s   162.28 Mpx/s  0.19714 s   162.36 Mpx/s
+>>> 320x180 bil     0.07623 s   419.86 Mpx/s  0.07616 s   420.27 Mpx/s
+>>> 320x180 bic     0.14718 s   217.48 Mpx/s  0.14700 s   217.74 Mpx/s
+>>> 320x180 lzs     0.24268 s   131.90 Mpx/s  0.24230 s   132.10 Mpx/s
+>>> 2048x1155 bil   0.14944 s   214.19 Mpx/s  0.14779 s   216.58 Mpx/s
+>>> 2048x1155 bic   0.23283 s   137.47 Mpx/s  0.23257 s   137.63 Mpx/s
+>>> 2048x1155 lzs   0.34441 s    92.94 Mpx/s  0.34374 s    93.12 Mpx/s
+>>> blur 1px        1.19752 s    26.73 Mpx/s  1.19210 s    26.85 Mpx/s
+>>> blur 10px       1.19726 s    26.73 Mpx/s  1.18557 s    27.00 Mpx/s
+>>> blur 100px      1.19732 s    26.73 Mpx/s  1.17706 s    27.19 Mpx/s
+
+
+Pillow-SIMD 3.3.0.post0
+-----------------------
+
+SSE4 (default)
+~~~~~~~~~~~~~~
+>>> 16x16 bil       0.05179 s   617.99 Mpx/s  0.05173 s   618.73 Mpx/s
+>>> 16x16 bic       0.09864 s   324.48 Mpx/s  0.09861 s   324.59 Mpx/s
+>>> 16x16 lzs       0.15540 s   205.97 Mpx/s  0.15528 s   206.13 Mpx/s
+>>> 320x180 bil     0.06093 s   525.35 Mpx/s  0.06086 s   525.89 Mpx/s
+>>> 320x180 bic     0.11490 s   278.57 Mpx/s  0.11471 s   279.03 Mpx/s
+>>> 320x180 lzs     0.19278 s   166.03 Mpx/s  0.19270 s   166.10 Mpx/s
+>>> 2048x1155 bil   0.12952 s   247.12 Mpx/s  0.12856 s   248.98 Mpx/s
+>>> 2048x1155 bic   0.19708 s   162.41 Mpx/s  0.19685 s   162.60 Mpx/s
+>>> 2048x1155 lzs   0.29448 s   108.69 Mpx/s  0.29417 s   108.81 Mpx/s
+>>> blur 1px        1.19752 s    26.73 Mpx/s  1.19210 s    26.85 Mpx/s
+>>> blur 10px       1.19726 s    26.73 Mpx/s  1.18557 s    27.00 Mpx/s
+>>> blur 100px      1.19732 s    26.73 Mpx/s  1.17706 s    27.19 Mpx/s
+
+
+ImageMagick 6.8.9-9
+-------------------
+>>> 16x16 bil        0.3800 s    84.23 Mpx/s
+>>> 16x16 bic        0.8090 s    39.56 Mpx/s
+>>> 16x16 lzs        1.1900 s    26.89 Mpx/s
+>>> 320x180 bil      0.3090 s   103.58 Mpx/s
+>>> 320x180 bic      0.5700 s    56.15 Mpx/s
+>>> 320x180 lzs      0.9100 s    35.17 Mpx/s
+>>> 2048x1155 bil    0.8490 s    37.70 Mpx/s
+>>> 2048x1155 bic    1.2190 s    26.25 Mpx/s
+>>> 2048x1155 lzs    1.6500 s    19.39 Mpx/s
+>>> blur 1px         0.1690 s    11.70 Mpx/s
+>>> blur 10px        0.5500 s     3.60 Mpx/s
+>>> blur 100px       4.2800 s     0.46 Mpx/s
+
+* the blur time is for 1920*1280 image
