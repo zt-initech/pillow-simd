@@ -213,7 +213,7 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
     __m128 mmk, mul;
 
     for (; xx < xsize - 3; xx += 4) {
-        __m128i ssi0, ssi1, ssi2, ssi3;
+        __m128i ssi0, ssi1;
         __m128 sss0 = _mm_setzero_ps();
         __m128 sss1 = _mm_setzero_ps();
         __m128 sss2 = _mm_setzero_ps();
@@ -239,14 +239,9 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
             mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
             sss3 = _mm_add_ps(sss3, mul);
         }
-        ssi0 = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, _mm_cvtps_epi32(sss0)));
-        ssi1 = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, _mm_cvtps_epi32(sss1)));
-        ssi2 = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, _mm_cvtps_epi32(sss2)));
-        ssi3 = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, _mm_cvtps_epi32(sss3)));
-
-        ssi0 = _mm_packus_epi32(ssi0, ssi1);
-        ssi2 = _mm_packus_epi32(ssi2, ssi3);
-        ssi0 = _mm_packus_epi16(ssi0, ssi2);
+        ssi0 = _mm_packus_epi32(_mm_cvtps_epi32(sss0), _mm_cvtps_epi32(sss1));
+        ssi1 = _mm_packus_epi32(_mm_cvtps_epi32(sss2), _mm_cvtps_epi32(sss3));
+        ssi0 = _mm_packus_epi16(ssi0, ssi1);
         _mm_storeu_si128((__m128i *) &lineOut[xx], ssi0);
     }
 
@@ -259,7 +254,8 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
             mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
             sss = _mm_add_ps(sss, mul);
         }
-        ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, _mm_cvtps_epi32(sss)));
+        ssi = _mm_cvtps_epi32(sss);
+        ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, ssi));
         lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(ssi, shiftmask));
     }
 }
