@@ -202,22 +202,64 @@ void
 ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
     int xmin, int xmax, float *k)
 {
-    int x, xx;
+    int x;
+    int xx = 0;
+    int xsize = imIn->xsize;
 
     __m128i mmmax = _mm_set1_epi32(255);
     __m128i mmmin = _mm_set1_epi32(0);
     __m128i shiftmask = _mm_set_epi8(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,12,8,4,0);
-    /* n-bit grayscale */
-    for (xx = 0; xx < imIn->xsize; xx++) {
+    __m128i pix;
+    __m128 mmk, mul;
+
+    for (; xx < xsize - 3; xx += 4) {
+        __m128i ssi0, ssi1, ssi2, ssi3;
+        __m128 sss0 = _mm_setzero_ps();
+        __m128 sss1 = _mm_setzero_ps();
+        __m128 sss2 = _mm_setzero_ps();
+        __m128 sss3 = _mm_setzero_ps();
+
+        for (x = 0; x < xmax; x++) {
+            __m128i source = _mm_loadu_si128((__m128i *) &imIn->image32[x + xmin][xx]);
+            mmk = _mm_set1_ps(k[x]);
+            
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,3, -1,-1,-1,2, -1,-1,-1,1, -1,-1,-1,0));
+            mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
+            sss0 = _mm_add_ps(sss0, mul);
+            
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,7, -1,-1,-1,6, -1,-1,-1,5, -1,-1,-1,4));
+            mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
+            sss1 = _mm_add_ps(sss1, mul);
+            
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,11, -1,-1,-1,10, -1,-1,-1,9, -1,-1,-1,8));
+            mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
+            sss2 = _mm_add_ps(sss2, mul);
+            
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,15, -1,-1,-1,14, -1,-1,-1,13, -1,-1,-1,12));
+            mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
+            sss3 = _mm_add_ps(sss3, mul);
+        }
+        ssi0 = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, _mm_cvtps_epi32(sss0)));
+        ssi1 = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, _mm_cvtps_epi32(sss1)));
+        ssi2 = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, _mm_cvtps_epi32(sss2)));
+        ssi3 = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, _mm_cvtps_epi32(sss3)));
+
+        ssi0 = _mm_packus_epi32(ssi0, ssi1);
+        ssi2 = _mm_packus_epi32(ssi2, ssi3);
+        ssi0 = _mm_packus_epi16(ssi0, ssi2);
+        _mm_storeu_si128((__m128i *) &lineOut[xx], ssi0);
+    }
+
+    for (; xx < xsize; xx++) {
+        __m128i ssi;
         __m128 sss = _mm_setzero_ps();
         for (x = 0; x < xmax; x++) {
-            __m128i pix = _mm_cvtepu8_epi32(*(__m128i *) &imIn->image32[x + xmin][xx]);
-            __m128 mmk = _mm_set1_ps(k[x]);
-            __m128 mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
+            pix = _mm_cvtepu8_epi32(*(__m128i *) &imIn->image32[x + xmin][xx]);
+            mmk = _mm_set1_ps(k[x]);
+            mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
             sss = _mm_add_ps(sss, mul);
         }
-        __m128i ssi = _mm_cvtps_epi32(sss);
-        ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, ssi));
+        ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, _mm_cvtps_epi32(sss)));
         lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(ssi, shiftmask));
     }
 }
