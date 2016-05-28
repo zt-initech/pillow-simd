@@ -1,6 +1,13 @@
 #include "Imaging.h"
 
 #include <math.h>
+#include <emmintrin.h>
+#include <mmintrin.h>
+#include <smmintrin.h>
+
+#if defined(__AVX2__)
+    #include <immintrin.h>
+#endif
 
 
 #define ROUND_UP(f) ((int) ((f) >= 0.0 ? (f) + 0.5F : (f) - 0.5F))
@@ -145,12 +152,179 @@ ImagingPrecompute(int inSize, int outSize, struct filter *filterp,
 }
 
 
+void
+ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
+    int xsize, int *xbounds, int *kk, int kmax)
+{
+    int xmin, xmax, xx, x;
+    int *k;
+
+    __m128i mmmax = _mm_set1_epi32((1 << PRECISION_BITS << 8) - 1);
+    __m128i mmmin = _mm_set1_epi32(0);
+    __m128i shiftmask = _mm_set_epi8(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,12,8,4,0);
+
+    for (xx = 0; xx < xsize; xx++) {
+        __m128i sss;
+        xmin = xbounds[xx * 2 + 0];
+        xmax = xbounds[xx * 2 + 1];
+        k = &kk[xx * kmax];
+        x = 0;
+
+#if defined(__AVX2__)
+
+        // __m256i sss256 = _mm256_setzero_si256();
+        __m256i sss256 = _mm256_set1_epi32(1 << (PRECISION_BITS -2));
+        for (; x < xmax - 7; x += 8) {
+            __m256i pix256, mmk, mul;
+            __m256i source = _mm256_loadu_si256((__m256i *) &lineIn[x + xmin]);
+            __m256i sourcek = _mm256_loadu_si256((__m256i *) &k[x]);
+
+            pix256 = _mm256_shuffle_epi8(source, _mm256_set_epi8(
+                -1,-1,-1,3, -1,-1,-1,2, -1,-1,-1,1, -1,-1,-1,0,
+                -1,-1,-1,3, -1,-1,-1,2, -1,-1,-1,1, -1,-1,-1,0));
+            mmk = _mm256_shuffle_epi32(sourcek, _MM_SHUFFLE(0, 0, 0, 0));
+            mul = _mm256_mullo_epi32(pix256, mmk);
+            sss256 = _mm256_add_epi32(sss256, mul);
+
+            pix256 = _mm256_shuffle_epi8(source, _mm256_set_epi8(
+                -1,-1,-1,7, -1,-1,-1,6, -1,-1,-1,5, -1,-1,-1,4,
+                -1,-1,-1,7, -1,-1,-1,6, -1,-1,-1,5, -1,-1,-1,4));
+            mmk = _mm256_shuffle_epi32(sourcek, _MM_SHUFFLE(1, 1, 1, 1));
+            mul = _mm256_mullo_epi32(pix256, mmk);
+            sss256 = _mm256_add_epi32(sss256, mul);
+
+            pix256 = _mm256_shuffle_epi8(source, _mm256_set_epi8(
+                -1,-1,-1,11, -1,-1,-1,10, -1,-1,-1,9, -1,-1,-1,8,
+                -1,-1,-1,11, -1,-1,-1,10, -1,-1,-1,9, -1,-1,-1,8));
+            mmk = _mm256_shuffle_epi32(sourcek, _MM_SHUFFLE(2, 2, 2, 2));
+            mul = _mm256_mullo_epi32(pix256, mmk);
+            sss256 = _mm256_add_epi32(sss256, mul);
+
+            pix256 = _mm256_shuffle_epi8(source, _mm256_set_epi8(
+                -1,-1,-1,15, -1,-1,-1,14, -1,-1,-1,13, -1,-1,-1,12,
+                -1,-1,-1,15, -1,-1,-1,14, -1,-1,-1,13, -1,-1,-1,12));
+            mmk = _mm256_shuffle_epi32(sourcek, _MM_SHUFFLE(3, 3, 3, 3));
+            mul = _mm256_mullo_epi32(pix256, mmk);
+            sss256 = _mm256_add_epi32(sss256, mul);
+        }
+        for (; x < xmax - 1; x += 2) {
+            __m256i mmk = _mm256_set1_epi32(k[x]);
+            mmk = _mm256_insertf128_si256(mmk, _mm_set1_epi32(k[x + 1]), 1);
+            __m256i pix = _mm256_cvtepu8_epi32(_mm_set_epi64x(0,  *((uint64_t *)&lineIn[x + xmin]) ));
+            __m256i mul = _mm256_mullo_epi32(mmk, pix);
+            sss256 = _mm256_add_epi32(sss256, mul);
+        }
+        sss = _mm_add_epi32(
+            _mm256_extractf128_si256(sss256, 0),
+            _mm256_extractf128_si256(sss256, 1)
+        );
+#else
+        sss = _mm_set1_epi32(1 << (PRECISION_BITS -1));
+        for (; x < xmax - 3; x += 4) {
+            __m128i pix, mmk, mul;
+            __m128i source = _mm_loadu_si128((__m128i *) &lineIn[x + xmin]);
+            __m128i ksource = _mm_loadu_si128((__m128i *) &k[x]);
+
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,3, -1,-1,-1,2, -1,-1,-1,1, -1,-1,-1,0));
+            mmk = _mm_shuffle_epi32(ksource, _MM_SHUFFLE(0, 0, 0, 0));
+            mul = _mm_mullo_epi32(pix, mmk);
+            sss = _mm_add_epi32(sss, mul);
+
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,7, -1,-1,-1,6, -1,-1,-1,5, -1,-1,-1,4));
+            mmk = _mm_shuffle_epi32(ksource, _MM_SHUFFLE(1, 1, 1, 1));
+            mul = _mm_mullo_epi32(pix, mmk);
+            sss = _mm_add_epi32(sss, mul);
+
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,11, -1,-1,-1,10, -1,-1,-1,9, -1,-1,-1,8));
+            mmk = _mm_shuffle_epi32(ksource, _MM_SHUFFLE(2, 2, 2, 2));
+            mul = _mm_mullo_epi32(pix, mmk);
+            sss = _mm_add_epi32(sss, mul);
+
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,15, -1,-1,-1,14, -1,-1,-1,13, -1,-1,-1,12));
+            mmk = _mm_shuffle_epi32(ksource, _MM_SHUFFLE(3, 3, 3, 3));
+            mul = _mm_mullo_epi32(pix, mmk);
+            sss = _mm_add_epi32(sss, mul);
+        }
+#endif
+        for (; x < xmax; x ++) {
+            __m128i pix = _mm_cvtepu8_epi32(*(__m128i *) &lineIn[x + xmin]);
+            __m128i mmk = _mm_set1_epi32(k[x]);
+            __m128i mul = _mm_mullo_epi32(pix, mmk);
+            sss = _mm_add_epi32(sss, mul);
+        }
+        sss = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, sss));
+        sss = _mm_srai_epi32(sss, PRECISION_BITS);
+        lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(sss, shiftmask));
+    }
+}
+
+void
+ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
+    int xmin, int xmax, int *k)
+{
+    int x;
+    int xx = 0;
+    int xsize = imIn->xsize;
+
+    __m128i mmmax = _mm_set1_epi32((1 << PRECISION_BITS << 8) - 1);
+    __m128i mmmin = _mm_set1_epi32(0);
+    __m128i shiftmask = _mm_set_epi8(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,12,8,4,0);
+    __m128i pix, mmk;
+
+    for (; xx < xsize - 3; xx += 4) {
+        __m128i sss0 = _mm_set1_epi32(1 << (PRECISION_BITS -1));
+        __m128i sss1 = _mm_set1_epi32(1 << (PRECISION_BITS -1));
+        __m128i sss2 = _mm_set1_epi32(1 << (PRECISION_BITS -1));
+        __m128i sss3 = _mm_set1_epi32(1 << (PRECISION_BITS -1));
+
+        for (x = 0; x < xmax; x++) {
+            __m128i source = _mm_loadu_si128((__m128i *) &imIn->image32[x + xmin][xx]);
+            mmk = _mm_set1_epi32(k[x]);
+            
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,3, -1,-1,-1,2, -1,-1,-1,1, -1,-1,-1,0));
+            sss0 = _mm_add_epi32(sss0, _mm_mullo_epi32(pix, mmk));
+            
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,7, -1,-1,-1,6, -1,-1,-1,5, -1,-1,-1,4));
+            sss1 = _mm_add_epi32(sss1, _mm_mullo_epi32(pix, mmk));
+            
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,11, -1,-1,-1,10, -1,-1,-1,9, -1,-1,-1,8));
+            sss2 = _mm_add_epi32(sss2, _mm_mullo_epi32(pix, mmk));
+            
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,15, -1,-1,-1,14, -1,-1,-1,13, -1,-1,-1,12));
+            sss3 = _mm_add_epi32(sss3, _mm_mullo_epi32(pix, mmk));
+        }
+        sss0 = _mm_srai_epi32(sss0, PRECISION_BITS);
+        sss1 = _mm_srai_epi32(sss1, PRECISION_BITS);
+        sss2 = _mm_srai_epi32(sss2, PRECISION_BITS);
+        sss3 = _mm_srai_epi32(sss3, PRECISION_BITS);
+
+        sss0 = _mm_packus_epi32(sss0, sss1);
+        sss2 = _mm_packus_epi32(sss2, sss3);
+        sss0 = _mm_packus_epi16(sss0, sss2);
+        _mm_storeu_si128((__m128i *) &lineOut[xx], sss0);
+    }
+
+
+    for (; xx < imIn->xsize; xx++) {
+        __m128i sss = _mm_set1_epi32(1 << (PRECISION_BITS -1));
+        for (x = 0; x < xmax; x++) {
+            pix = _mm_cvtepu8_epi32(*(__m128i *) &imIn->image32[x + xmin][xx]);
+            mmk = _mm_set1_epi32(k[x]);
+            sss = _mm_add_epi32(sss, _mm_mullo_epi32(pix, mmk));
+        }
+        sss = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, sss));
+        sss = _mm_srai_epi32(sss, PRECISION_BITS);
+        lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(sss, shiftmask));
+    }
+}
+
+
 Imaging
 ImagingResampleHorizontal_8bpc(Imaging imIn, int xsize, struct filter *filterp)
 {
     ImagingSectionCookie cookie;
     Imaging imOut;
-    int ss0, ss1, ss2, ss3;
+    int ss0;
     int xx, yy, x, kmax, xmin, xmax;
     int *xbounds;
     int *k, *kk;
@@ -196,57 +370,12 @@ ImagingResampleHorizontal_8bpc(Imaging imIn, int xsize, struct filter *filterp)
             }
         }
     } else if (imIn->type == IMAGING_TYPE_UINT8) {
-        if (imIn->bands == 2) {
-            for (yy = 0; yy < imOut->ysize; yy++) {
-                for (xx = 0; xx < xsize; xx++) {
-                    xmin = xbounds[xx * 2 + 0];
-                    xmax = xbounds[xx * 2 + 1];
-                    k = &kk[xx * kmax];
-                    ss0 = ss3 = 1 << (PRECISION_BITS -1);
-                    for (x = 0; x < xmax; x++) {
-                        ss0 += ((UINT8) imIn->image[yy][(x + xmin)*4 + 0]) * k[x];
-                        ss3 += ((UINT8) imIn->image[yy][(x + xmin)*4 + 3]) * k[x];
-                    }
-                    imOut->image[yy][xx*4 + 0] = clip8(ss0);
-                    imOut->image[yy][xx*4 + 3] = clip8(ss3);
-                }
-            }
-        } else if (imIn->bands == 3) {
-            for (yy = 0; yy < imOut->ysize; yy++) {
-                for (xx = 0; xx < xsize; xx++) {
-                    xmin = xbounds[xx * 2 + 0];
-                    xmax = xbounds[xx * 2 + 1];
-                    k = &kk[xx * kmax];
-                    ss0 = ss1 = ss2 = 1 << (PRECISION_BITS -1);
-                    for (x = 0; x < xmax; x++) {
-                        ss0 += ((UINT8) imIn->image[yy][(x + xmin)*4 + 0]) * k[x];
-                        ss1 += ((UINT8) imIn->image[yy][(x + xmin)*4 + 1]) * k[x];
-                        ss2 += ((UINT8) imIn->image[yy][(x + xmin)*4 + 2]) * k[x];
-                    }
-                    imOut->image[yy][xx*4 + 0] = clip8(ss0);
-                    imOut->image[yy][xx*4 + 1] = clip8(ss1);
-                    imOut->image[yy][xx*4 + 2] = clip8(ss2);
-                }
-            }
-        } else {
-            for (yy = 0; yy < imOut->ysize; yy++) {
-                for (xx = 0; xx < xsize; xx++) {
-                    xmin = xbounds[xx * 2 + 0];
-                    xmax = xbounds[xx * 2 + 1];
-                    k = &kk[xx * kmax];
-                    ss0 = ss1 = ss2 = ss3 = 1 << (PRECISION_BITS -1);
-                    for (x = 0; x < xmax; x++) {
-                        ss0 += ((UINT8) imIn->image[yy][(x + xmin)*4 + 0]) * k[x];
-                        ss1 += ((UINT8) imIn->image[yy][(x + xmin)*4 + 1]) * k[x];
-                        ss2 += ((UINT8) imIn->image[yy][(x + xmin)*4 + 2]) * k[x];
-                        ss3 += ((UINT8) imIn->image[yy][(x + xmin)*4 + 3]) * k[x];
-                    }
-                    imOut->image[yy][xx*4 + 0] = clip8(ss0);
-                    imOut->image[yy][xx*4 + 1] = clip8(ss1);
-                    imOut->image[yy][xx*4 + 2] = clip8(ss2);
-                    imOut->image[yy][xx*4 + 3] = clip8(ss3);
-                }
-            }
+        for (yy = 0; yy < imOut->ysize; yy++) {
+            ImagingResampleHorizontalConvolution8u(
+                (UINT32 *) imOut->image32[yy],
+                (UINT32 *) imIn->image32[yy],
+                xsize, xbounds, kk, kmax
+            );
         }
     }
 
@@ -262,7 +391,7 @@ ImagingResampleVertical_8bpc(Imaging imIn, int ysize, struct filter *filterp)
 {
     ImagingSectionCookie cookie;
     Imaging imOut;
-    int ss0, ss1, ss2, ss3;
+    int ss0;
     int xx, yy, y, kmax, ymin, ymax;
     int *xbounds;
     int *k, *kk;
@@ -308,57 +437,14 @@ ImagingResampleVertical_8bpc(Imaging imIn, int ysize, struct filter *filterp)
             }
         }
     } else if (imIn->type == IMAGING_TYPE_UINT8) {
-        if (imIn->bands == 2) {
-            for (yy = 0; yy < ysize; yy++) {
-                k = &kk[yy * kmax];
-                ymin = xbounds[yy * 2 + 0];
-                ymax = xbounds[yy * 2 + 1];
-                for (xx = 0; xx < imOut->xsize; xx++) {
-                    ss0 = ss3 = 1 << (PRECISION_BITS -1);
-                    for (y = 0; y < ymax; y++) {
-                        ss0 += ((UINT8) imIn->image[y + ymin][xx*4 + 0]) * k[y];
-                        ss3 += ((UINT8) imIn->image[y + ymin][xx*4 + 3]) * k[y];
-                    }
-                    imOut->image[yy][xx*4 + 0] = clip8(ss0);
-                    imOut->image[yy][xx*4 + 3] = clip8(ss3);
-                }
-            }
-        } else if (imIn->bands == 3) {
-            for (yy = 0; yy < ysize; yy++) {
-                k = &kk[yy * kmax];
-                ymin = xbounds[yy * 2 + 0];
-                ymax = xbounds[yy * 2 + 1];
-                for (xx = 0; xx < imOut->xsize; xx++) {
-                    ss0 = ss1 = ss2 = 1 << (PRECISION_BITS -1);
-                    for (y = 0; y < ymax; y++) {
-                        ss0 += ((UINT8) imIn->image[y + ymin][xx*4 + 0]) * k[y];
-                        ss1 += ((UINT8) imIn->image[y + ymin][xx*4 + 1]) * k[y];
-                        ss2 += ((UINT8) imIn->image[y + ymin][xx*4 + 2]) * k[y];
-                    }
-                    imOut->image[yy][xx*4 + 0] = clip8(ss0);
-                    imOut->image[yy][xx*4 + 1] = clip8(ss1);
-                    imOut->image[yy][xx*4 + 2] = clip8(ss2);
-                }
-            }
-        } else {
-            for (yy = 0; yy < ysize; yy++) {
-                k = &kk[yy * kmax];
-                ymin = xbounds[yy * 2 + 0];
-                ymax = xbounds[yy * 2 + 1];
-                for (xx = 0; xx < imOut->xsize; xx++) {
-                    ss0 = ss1 = ss2 = ss3 = 1 << (PRECISION_BITS -1);
-                    for (y = 0; y < ymax; y++) {
-                        ss0 += ((UINT8) imIn->image[y + ymin][xx*4 + 0]) * k[y];
-                        ss1 += ((UINT8) imIn->image[y + ymin][xx*4 + 1]) * k[y];
-                        ss2 += ((UINT8) imIn->image[y + ymin][xx*4 + 2]) * k[y];
-                        ss3 += ((UINT8) imIn->image[y + ymin][xx*4 + 3]) * k[y];
-                    }
-                    imOut->image[yy][xx*4 + 0] = clip8(ss0);
-                    imOut->image[yy][xx*4 + 1] = clip8(ss1);
-                    imOut->image[yy][xx*4 + 2] = clip8(ss2);
-                    imOut->image[yy][xx*4 + 3] = clip8(ss3);
-                }
-            }
+        for (yy = 0; yy < ysize; yy++) {
+            k = &kk[yy * kmax];
+            ymin = xbounds[yy * 2 + 0];
+            ymax = xbounds[yy * 2 + 1];
+            ImagingResampleVerticalConvolution8u(
+                (UINT32 *) imOut->image32[yy], imIn,
+                ymin, ymax, k
+            );
         }
     }
 
