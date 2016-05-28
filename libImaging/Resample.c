@@ -172,7 +172,6 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
 
 #if defined(__AVX2__)
 
-        // __m256i sss256 = _mm256_setzero_si256();
         __m256i sss256 = _mm256_set1_epi32(1 << (PRECISION_BITS -2));
         for (; x < xmax - 7; x += 8) {
             __m256i pix256, mmk, mul;
@@ -218,7 +217,9 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
             _mm256_extractf128_si256(sss256, 0),
             _mm256_extractf128_si256(sss256, 1)
         );
+
 #else
+
         sss = _mm_set1_epi32(1 << (PRECISION_BITS -1));
         for (; x < xmax - 3; x += 4) {
             __m128i pix, mmk, mul;
@@ -245,7 +246,9 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
             mul = _mm_mullo_epi32(pix, mmk);
             sss = _mm_add_epi32(sss, mul);
         }
+
 #endif
+
         for (; x < xmax; x ++) {
             __m128i pix = _mm_cvtepu8_epi32(*(__m128i *) &lineIn[x + xmin]);
             __m128i mmk = _mm_set1_epi32(k[x]);
@@ -269,9 +272,55 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
     __m128i mmmax = _mm_set1_epi32((1 << PRECISION_BITS << 8) - 1);
     __m128i mmmin = _mm_set1_epi32(0);
     __m128i shiftmask = _mm_set_epi8(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,12,8,4,0);
-    __m128i pix, mmk;
 
+#if defined(__AVX2__)
+
+    for (; xx < xsize - 7; xx += 8) {
+        __m256i pix, mmk;
+        __m256i sss0 = _mm256_set1_epi32(1 << (PRECISION_BITS -1));
+        __m256i sss1 = _mm256_set1_epi32(1 << (PRECISION_BITS -1));
+        __m256i sss2 = _mm256_set1_epi32(1 << (PRECISION_BITS -1));
+        __m256i sss3 = _mm256_set1_epi32(1 << (PRECISION_BITS -1));
+
+        for (x = 0; x < xmax; x++) {
+            __m256i source = _mm256_loadu_si256((__m256i *) &imIn->image32[x + xmin][xx]);
+            mmk = _mm256_set1_epi32(k[x]);
+            
+            pix = _mm256_shuffle_epi8(source, _mm256_set_epi8(
+                -1,-1,-1,3, -1,-1,-1,2, -1,-1,-1,1, -1,-1,-1,0,
+                -1,-1,-1,3, -1,-1,-1,2, -1,-1,-1,1, -1,-1,-1,0));
+            sss0 = _mm256_add_epi32(sss0, _mm256_mullo_epi32(pix, mmk));
+            
+            pix = _mm256_shuffle_epi8(source, _mm256_set_epi8(
+                -1,-1,-1,7, -1,-1,-1,6, -1,-1,-1,5, -1,-1,-1,4,
+                -1,-1,-1,7, -1,-1,-1,6, -1,-1,-1,5, -1,-1,-1,4));
+            sss1 = _mm256_add_epi32(sss1, _mm256_mullo_epi32(pix, mmk));
+            
+            pix = _mm256_shuffle_epi8(source, _mm256_set_epi8(
+                -1,-1,-1,11, -1,-1,-1,10, -1,-1,-1,9, -1,-1,-1,8,
+                -1,-1,-1,11, -1,-1,-1,10, -1,-1,-1,9, -1,-1,-1,8));
+            sss2 = _mm256_add_epi32(sss2, _mm256_mullo_epi32(pix, mmk));
+            
+            pix = _mm256_shuffle_epi8(source, _mm256_set_epi8(
+                -1,-1,-1,15, -1,-1,-1,14, -1,-1,-1,13, -1,-1,-1,12,
+                -1,-1,-1,15, -1,-1,-1,14, -1,-1,-1,13, -1,-1,-1,12));
+            sss3 = _mm256_add_epi32(sss3, _mm256_mullo_epi32(pix, mmk));
+        }
+        sss0 = _mm256_srai_epi32(sss0, PRECISION_BITS);
+        sss1 = _mm256_srai_epi32(sss1, PRECISION_BITS);
+        sss2 = _mm256_srai_epi32(sss2, PRECISION_BITS);
+        sss3 = _mm256_srai_epi32(sss3, PRECISION_BITS);
+
+        sss0 = _mm256_packus_epi32(sss0, sss1);
+        sss2 = _mm256_packus_epi32(sss2, sss3);
+        sss0 = _mm256_packus_epi16(sss0, sss2);
+        _mm256_storeu_si256((__m256i *) &lineOut[xx], sss0);
+    }
+
+#endif
+    
     for (; xx < xsize - 3; xx += 4) {
+        __m128i pix, mmk;
         __m128i sss0 = _mm_set1_epi32(1 << (PRECISION_BITS -1));
         __m128i sss1 = _mm_set1_epi32(1 << (PRECISION_BITS -1));
         __m128i sss2 = _mm_set1_epi32(1 << (PRECISION_BITS -1));
@@ -304,8 +353,8 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
         _mm_storeu_si128((__m128i *) &lineOut[xx], sss0);
     }
 
-
     for (; xx < imIn->xsize; xx++) {
+        __m128i pix, mmk;
         __m128i sss = _mm_set1_epi32(1 << (PRECISION_BITS -1));
         for (x = 0; x < xmax; x++) {
             pix = _mm_cvtepu8_epi32(*(__m128i *) &imIn->image32[x + xmin][xx]);
