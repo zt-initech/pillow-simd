@@ -1006,19 +1006,22 @@ ImagingTransformAffineSlow(Imaging imOut, Imaging imIn,
     float w, l;
     point pcenter, ptop, pbottom, pleft, pright;
     double inva[6];
-
-    ImagingTransformFilter filter = getfilter(imIn, filterid);
-    if (!filter)
-        return (Imaging) ImagingError_ValueError("bad filter number");
+    struct filter filter;
 
     if (!imOut || !imIn || strcmp(imIn->mode, imOut->mode) != 0)
         return (Imaging) ImagingError_ModeError();
+
+    if (filterid == 1) filter = LANCZOS;
+    if (filterid == 2) filter = BILINEAR;
+    if (filterid == 3) filter = BICUBIC;
 
     ImagingCopyInfo(imOut, imIn);
 
     ImagingSectionEnter(&cookie);
 
     invert_affine_matrix(a, inva);
+
+    // printf("%f %f %f \n%f %f %f \n", inva[0], inva[1], inva[2], inva[3], inva[4], inva[5]);
 
     if (x0 < 0)
         x0 = 0;
@@ -1031,10 +1034,10 @@ ImagingTransformAffineSlow(Imaging imOut, Imaging imIn,
 
     for (y = y0; y < y1; y++) {
         for (x = x0; x < x1; x++) {
-            ptop = affine_transform2(x, y + LANCZOS.support, a);
-            pright = affine_transform2(x + LANCZOS.support, y, a);
-            pbottom = affine_transform2(x, y - LANCZOS.support, a);
-            pleft = affine_transform2(x - LANCZOS.support, y, a);
+            ptop = affine_transform2(x, y + filter.support, a);
+            pright = affine_transform2(x + filter.support, y, a);
+            pbottom = affine_transform2(x, y - filter.support, a);
+            pleft = affine_transform2(x - filter.support, y, a);
 
             xfrom = xto = ptop.x;
             if (xfrom > pright.x) xfrom = pright.x;
@@ -1059,20 +1062,29 @@ ImagingTransformAffineSlow(Imaging imOut, Imaging imIn,
             float ww = 0;
             ss0 = ss1 = ss2 = ss3 = 0;
             for (yy = (int) yfrom; yy < yto; yy++) {
+                pcenter = affine_transform2((int) xfrom, yy, inva);
+                
                 for (xx = (int) xfrom; xx < xto; xx++) {
-                    pcenter = affine_transform2(xx, yy, inva);
                     l = sqrt((pcenter.x - x) * (pcenter.x - x) +
                         (pcenter.y - y) * (pcenter.y - y));
-                    if (l > LANCZOS.support)
+                    // if (x == 255 && y == 255) {
+                    //     printf("%f\n", l);
+                    // }
+                    if (l > filter.support)
                         continue;
-                    w = LANCZOS.filter(l);
+                    w = filter.filter(l);
 
                     ss0 += ((UINT8) imIn->image[yy][xx*4 + 0]) * w;
                     ss1 += ((UINT8) imIn->image[yy][xx*4 + 1]) * w;
                     ss2 += ((UINT8) imIn->image[yy][xx*4 + 2]) * w;
                     ss3 += ((UINT8) imIn->image[yy][xx*4 + 3]) * w;
                     ww += w;
+                    pcenter.x += inva[0];
+                    pcenter.y += inva[3];
                 }
+                // if (x == 255 && y == 255) {
+                //     printf("\n");
+                // }
             }
             if (ww) {
                 imOut->image[y][x*4 + 0] = clip8(ss0 / ww);
@@ -1097,7 +1109,11 @@ ImagingTransform(Imaging imOut, Imaging imIn, int method,
 
     switch(method) {
     case IMAGING_TRANSFORM_AFFINE:
-        return ImagingTransformAffineSlow(
+        if (filterid > 0) {
+            return ImagingTransformAffineSlow(
+                imOut, imIn, x0, y0, x1, y1, a, filterid, fill);
+        }
+        return ImagingTransformAffine(
             imOut, imIn, x0, y0, x1, y1, a, filterid, fill);
         break;
     case IMAGING_TRANSFORM_PERSPECTIVE:
