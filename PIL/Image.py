@@ -1901,7 +1901,7 @@ class Image(object):
         else:
             raise ValueError("unknown transformation method")
 
-        if resample not in (NEAREST, BILINEAR, BICUBIC):
+        if resample not in (NEAREST, BILINEAR, BICUBIC, LANCZOS):
             raise ValueError("unknown resampling filter")
 
         image.load()
