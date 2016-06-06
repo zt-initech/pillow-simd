@@ -1004,9 +1004,12 @@ ImagingTransformAffineSlow(Imaging imOut, Imaging imIn,
     float ss0, ss1, ss2, ss3;
     float xfrom, xto, yfrom, yto;
     float w, l;
-    point pcenter, ptop, pbottom, pleft, pright;
+    point p0, p1, p2, p3;
     double inva[6];
     struct filter filter;
+    float *kk;
+
+    #define RESOLUTION 32
 
     if (!imOut || !imIn || strcmp(imIn->mode, imOut->mode) != 0)
         return (Imaging) ImagingError_ModeError();
@@ -1023,6 +1026,11 @@ ImagingTransformAffineSlow(Imaging imOut, Imaging imIn,
 
     // printf("%f %f %f \n%f %f %f \n", inva[0], inva[1], inva[2], inva[3], inva[4], inva[5]);
 
+    kk = (float*) malloc((RESOLUTION * filter.support + 1) * sizeof(float));
+    for (x = 0; x <= RESOLUTION * filter.support; x ++) {
+        kk[x] = filter.filter(((float) x) / RESOLUTION);
+    }
+
     if (x0 < 0)
         x0 = 0;
     if (y0 < 0)
@@ -1034,57 +1042,53 @@ ImagingTransformAffineSlow(Imaging imOut, Imaging imIn,
 
     for (y = y0; y < y1; y++) {
         for (x = x0; x < x1; x++) {
-            ptop = affine_transform2(x, y + filter.support, a);
-            pright = affine_transform2(x + filter.support, y, a);
-            pbottom = affine_transform2(x, y - filter.support, a);
-            pleft = affine_transform2(x - filter.support, y, a);
+            p0 = affine_transform2(x + filter.support, y + filter.support, a);
+            p1 = affine_transform2(x + filter.support, y - filter.support, a);
+            p2 = affine_transform2(x - filter.support, y + filter.support, a);
+            p3 = affine_transform2(x - filter.support, y - filter.support, a);
 
-            xfrom = xto = ptop.x;
-            if (xfrom > pright.x) xfrom = pright.x;
-            if (xto < pright.x) xto = pright.x;
-            if (xfrom > pbottom.x) xfrom = pbottom.x;
-            if (xto < pbottom.x) xto = pbottom.x;
-            if (xfrom > pleft.x) xfrom = pleft.x;
-            if (xto < pleft.x) xto = pleft.x;
-            yfrom = yto = ptop.y;
-            if (yfrom > pright.y) yfrom = pright.y;
-            if (yto < pright.y) yto = pright.y;
-            if (yfrom > pbottom.y) yfrom = pbottom.y;
-            if (yto < pbottom.y) yto = pbottom.y;
-            if (yfrom > pleft.y) yfrom = pleft.y;
-            if (yto < pleft.y) yto = pleft.y;
+            xfrom = xto = p0.x;
+            yfrom = yto = p0.y;
+            if (xfrom > p1.x) xfrom = p1.x;
+            if (xto < p1.x) xto = p1.x;
+            if (yfrom > p1.y) yfrom = p1.y;
+            if (yto < p1.y) yto = p1.y;
+            if (xfrom > p2.x) xfrom = p2.x;
+            if (xto < p2.x) xto = p2.x;
+            if (yfrom > p2.y) yfrom = p2.y;
+            if (yto < p2.y) yto = p2.y;
+            if (xfrom > p3.x) xfrom = p3.x;
+            if (xto < p3.x) xto = p3.x;
+            if (yfrom > p3.y) yfrom = p3.y;
+            if (yto < p3.y) yto = p3.y;
 
-            if (yfrom < 0) yfrom = 0;
-            if (yto > imIn->ysize) yto = imIn->ysize;
             if (xfrom < 0) xfrom = 0;
             if (xto > imIn->xsize) xto = imIn->xsize;
+            if (yfrom < 0) yfrom = 0;
+            if (yto > imIn->ysize) yto = imIn->ysize;
 
             float ww = 0;
             ss0 = ss1 = ss2 = ss3 = 0;
+            p0 = affine_transform2((int) xfrom, (int) yfrom, inva);
             for (yy = (int) yfrom; yy < yto; yy++) {
-                pcenter = affine_transform2((int) xfrom, yy, inva);
-                
+                p1.x = p0.x - x;
+                p1.y = p0.y - y;
+                p0.x += inva[1];
+                p0.y += inva[4];
                 for (xx = (int) xfrom; xx < xto; xx++) {
-                    l = sqrt((pcenter.x - x) * (pcenter.x - x) +
-                        (pcenter.y - y) * (pcenter.y - y));
-                    // if (x == 255 && y == 255) {
-                    //     printf("%f\n", l);
-                    // }
+                    l = sqrt(p1.x * p1.x + p1.y * p1.y);
+                    p1.x += inva[0];
+                    p1.y += inva[3];
                     if (l > filter.support)
                         continue;
-                    w = filter.filter(l);
+                    w = kk[(int) (l * RESOLUTION)];
 
                     ss0 += ((UINT8) imIn->image[yy][xx*4 + 0]) * w;
                     ss1 += ((UINT8) imIn->image[yy][xx*4 + 1]) * w;
                     ss2 += ((UINT8) imIn->image[yy][xx*4 + 2]) * w;
                     ss3 += ((UINT8) imIn->image[yy][xx*4 + 3]) * w;
                     ww += w;
-                    pcenter.x += inva[0];
-                    pcenter.y += inva[3];
                 }
-                // if (x == 255 && y == 255) {
-                //     printf("\n");
-                // }
             }
             if (ww) {
                 imOut->image[y][x*4 + 0] = clip8(ss0 / ww);
@@ -1096,6 +1100,8 @@ ImagingTransformAffineSlow(Imaging imOut, Imaging imIn,
     }
 
     ImagingSectionLeave(&cookie);
+
+    free(kk);
 
     return imOut;
 }
