@@ -159,10 +159,6 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
     int xmin, xmax, xx, x;
     int *k;
 
-    __m128i mmmax = _mm_set1_epi32((1 << PRECISION_BITS << 8) - 1);
-    __m128i mmmin = _mm_set1_epi32(0);
-    __m128i shiftmask = _mm_set_epi8(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,12,8,4,0);
-
     for (xx = 0; xx < xsize; xx++) {
         __m128i sss;
         xmin = xbounds[xx * 2 + 0];
@@ -226,22 +222,26 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
             __m128i source = _mm_loadu_si128((__m128i *) &lineIn[x + xmin]);
             __m128i ksource = _mm_loadu_si128((__m128i *) &k[x]);
 
-            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,3, -1,-1,-1,2, -1,-1,-1,1, -1,-1,-1,0));
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(
+                -1,-1,-1,3, -1,-1,-1,2, -1,-1,-1,1, -1,-1,-1,0));
             mmk = _mm_shuffle_epi32(ksource, _MM_SHUFFLE(0, 0, 0, 0));
             mul = _mm_mullo_epi32(pix, mmk);
             sss = _mm_add_epi32(sss, mul);
 
-            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,7, -1,-1,-1,6, -1,-1,-1,5, -1,-1,-1,4));
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(
+                -1,-1,-1,7, -1,-1,-1,6, -1,-1,-1,5, -1,-1,-1,4));
             mmk = _mm_shuffle_epi32(ksource, _MM_SHUFFLE(1, 1, 1, 1));
             mul = _mm_mullo_epi32(pix, mmk);
             sss = _mm_add_epi32(sss, mul);
 
-            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,11, -1,-1,-1,10, -1,-1,-1,9, -1,-1,-1,8));
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(
+                -1,-1,-1,11, -1,-1,-1,10, -1,-1,-1,9, -1,-1,-1,8));
             mmk = _mm_shuffle_epi32(ksource, _MM_SHUFFLE(2, 2, 2, 2));
             mul = _mm_mullo_epi32(pix, mmk);
             sss = _mm_add_epi32(sss, mul);
 
-            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,15, -1,-1,-1,14, -1,-1,-1,13, -1,-1,-1,12));
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(
+                -1,-1,-1,15, -1,-1,-1,14, -1,-1,-1,13, -1,-1,-1,12));
             mmk = _mm_shuffle_epi32(ksource, _MM_SHUFFLE(3, 3, 3, 3));
             mul = _mm_mullo_epi32(pix, mmk);
             sss = _mm_add_epi32(sss, mul);
@@ -255,9 +255,10 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
             __m128i mul = _mm_mullo_epi32(pix, mmk);
             sss = _mm_add_epi32(sss, mul);
         }
-        sss = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, sss));
+        // sss = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, sss));
         sss = _mm_srai_epi32(sss, PRECISION_BITS);
-        lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(sss, shiftmask));
+        sss = _mm_packs_epi32(sss, sss);
+        lineOut[xx] = _mm_cvtsi128_si32(_mm_packus_epi16(sss, sss));
     }
 }
 
@@ -268,10 +269,6 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
     int x;
     int xx = 0;
     int xsize = imIn->xsize;
-
-    __m128i mmmax = _mm_set1_epi32((1 << PRECISION_BITS << 8) - 1);
-    __m128i mmmin = _mm_set1_epi32(0);
-    __m128i shiftmask = _mm_set_epi8(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,12,8,4,0);
 
 #if defined(__AVX2__)
 
@@ -330,16 +327,20 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
             __m128i source = _mm_loadu_si128((__m128i *) &imIn->image32[x + xmin][xx]);
             mmk = _mm_set1_epi32(k[x]);
             
-            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,3, -1,-1,-1,2, -1,-1,-1,1, -1,-1,-1,0));
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(
+                -1,-1,-1,3, -1,-1,-1,2, -1,-1,-1,1, -1,-1,-1,0));
             sss0 = _mm_add_epi32(sss0, _mm_mullo_epi32(pix, mmk));
             
-            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,7, -1,-1,-1,6, -1,-1,-1,5, -1,-1,-1,4));
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(
+                -1,-1,-1,7, -1,-1,-1,6, -1,-1,-1,5, -1,-1,-1,4));
             sss1 = _mm_add_epi32(sss1, _mm_mullo_epi32(pix, mmk));
             
-            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,11, -1,-1,-1,10, -1,-1,-1,9, -1,-1,-1,8));
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(
+                -1,-1,-1,11, -1,-1,-1,10, -1,-1,-1,9, -1,-1,-1,8));
             sss2 = _mm_add_epi32(sss2, _mm_mullo_epi32(pix, mmk));
             
-            pix = _mm_shuffle_epi8(source, _mm_set_epi8(-1,-1,-1,15, -1,-1,-1,14, -1,-1,-1,13, -1,-1,-1,12));
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(
+                -1,-1,-1,15, -1,-1,-1,14, -1,-1,-1,13, -1,-1,-1,12));
             sss3 = _mm_add_epi32(sss3, _mm_mullo_epi32(pix, mmk));
         }
         sss0 = _mm_srai_epi32(sss0, PRECISION_BITS);
@@ -347,8 +348,8 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
         sss2 = _mm_srai_epi32(sss2, PRECISION_BITS);
         sss3 = _mm_srai_epi32(sss3, PRECISION_BITS);
 
-        sss0 = _mm_packus_epi32(sss0, sss1);
-        sss2 = _mm_packus_epi32(sss2, sss3);
+        sss0 = _mm_packs_epi32(sss0, sss1);
+        sss2 = _mm_packs_epi32(sss2, sss3);
         sss0 = _mm_packus_epi16(sss0, sss2);
         _mm_storeu_si128((__m128i *) &lineOut[xx], sss0);
     }
@@ -361,9 +362,9 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
             mmk = _mm_set1_epi32(k[x]);
             sss = _mm_add_epi32(sss, _mm_mullo_epi32(pix, mmk));
         }
-        sss = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, sss));
         sss = _mm_srai_epi32(sss, PRECISION_BITS);
-        lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(sss, shiftmask));
+        sss = _mm_packs_epi32(sss, sss);
+        lineOut[xx] = _mm_cvtsi128_si32(_mm_packus_epi16(sss, sss));
     }
 }
 
