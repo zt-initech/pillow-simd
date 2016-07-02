@@ -18,11 +18,6 @@ Convertion
 - RGBa -> RGBA AVX2 implementation using gather instructions.
   Up to 5x faster.
 
-Alpha composite
-~~~~~~~~~~~~~~~
-
-- SSE4 and AVX2 implementations. Up to 4.3x faster.
-
 
 3.2.0.post3
 -----------
