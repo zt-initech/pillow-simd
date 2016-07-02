@@ -49,42 +49,35 @@ per second. For example, if resize of 7712×4352 image is done in 0.5 seconds,
 the result will be 67.1 Mpx/s.
 
 - ImageMagick 6.9.3-8 Q8 x86_64
-- Pillow 3.2.0
-- Pillow-SIMD 3.2.0.post2
+- Skia 53
+- Pillow 3.3.0
+- Pillow-SIMD 3.3.0.post0
 
-Source    | Operation               | Filter  | IM   | Pillow | SIMD SSE4 | SIMD AVX2 
-----------|-------------------------|---------|------|--------|-----------|-----------
-7712×4352 | **Resize to 16x16**     | Bilinear| 27.0 | 217    | 437       | 710
-          |                         | Bicubic | 10.9 | 115    | 232       | 391
-          |                         | Lanczos | 6.6  | 76.1   | 157       | 265
-          | **Resize to 320x180**   | Bilinear| 32.0 | 166    | 410       | 612
-          |                         | Bicubic | 16.5 | 92.3   | 211       | 344
-          |                         | Lanczos | 11.0 | 63.2   | 136       | 223
-          | **Resize to 2048x1155** | Bilinear| 20.7 | 87.6   | 229       | 265
-          |                         | Bicubic | 12.2 | 65.7   | 140       | 171
-          |                         | Lanczos | 8.7  | 41.3   | 100       | 126
-          | **Blur**                | 1px     | 8.1  | 17.1   | 37.8
-          |                         | 10px    | 2.6  | 17.4   | 39.0
-          |                         | 100px   | 0.3  | 17.2   | 39.0
-1920×1280 | **Resize to 16x16**     | Bilinear| 41.6 | 196    | 426       | 750
-          |                         | Bicubic | 18.9 | 102    | 221       | 379
-          |                         | Lanczos | 13.7 | 68.6   | 140       | 227
-          | **Resize to 320x180**   | Bilinear| 27.6 | 111    | 303       | 346
-          |                         | Bicubic | 14.5 | 66.3   | 164       | 230
-          |                         | Lanczos | 9.8  | 44.3   | 108       | 143
-          | **Resize to 2048x1155** | Bilinear| 9.1  | 20.7   | 71.1      | 69.6
-          |                         | Bicubic | 6.3  | 16.9   | 53.8      | 53.1
-          |                         | Lanczos | 4.7  | 14.6   | 40.7      | 41.7
-          | **Blur**                | 1px     | 8.7  | 16.2   | 35.7
-          |                         | 10px    | 2.8  | 16.7   | 35.4
-          |                         | 100px   | 0.4  | 16.4   | 36.2
+Source    | Operation               | Filter  | IM   | Skia 53 | Pillow | SIMD SSE4 | SIMD AVX2 
+----------|-------------------------|---------|------|---------|--------|-----------|-----------
+2560x1600 | **Resize to 16x16**     | Bilinear| 41.37| 809.49  | 337.12 | 571.67    | 903.40
+          |                         | Bicubic | 20.58| 453.10  | 185.79 | 305.72    | 552.85
+          |                         | Lanczos | 14.17| 292.57  | 113.27 | 189.19    | 355.40
+          | **Resize to 320x180**   | Bilinear| 29.46| 592.76  | 209.06 | 366.33    | 558.57
+          |                         | Bicubic | 15.75| 327.68  | 124.43 | 224.91    | 353.53
+          |                         | Lanczos | 10.80| 196.92  |  82.25 | 153.10    | 244.22
+          | **Resize to 1920x1200** | Bilinear| 17.80| 192.30  |  55.87 | 131.27    | 152.11
+          |                         | Bicubic |  9.99| 112.84  |  43.64 |  90.20    | 112.34
+          |                         | Lanczos |  6.95| 104.76  |  34.51 |  72.55    | 103.16
+          | **Resize to 7712x4352** | Bilinear|  2.54|  20.58  |   6.71 |  16.06    |  20.33
+          |                         | Bicubic |  1.60|  16.52  |   5.51 |  12.65    |  16.46
+          |                         | Lanczos |  1.09|  12.05  |   4.62 |   9.84    |  13.38
+          | **Blur**                | 1px     |  6.60|         |  16.94 |  35.16
+          |                         | 10px    |  2.28|         |  16.94 |  35.47
+          |                         | 100px   |  0.34|         |  16.93 |  35.53
 
 
 ### Some conclusion
 
 Pillow is always faster than ImageMagick. And Pillow-SIMD is faster
-than Pillow in 2—2.5 times. In general, Pillow-SIMD with AVX2 almost always
-**10-15 times faster** than ImageMagick.
+than Pillow in 2—2.5 times. In general, Pillow-SIMD with AVX2 always
+**8-20 times faster** than ImageMagick and almost equal to the Skia results,
+high-speed graphics library used in Chromium.
 
 ### Methodology
 
