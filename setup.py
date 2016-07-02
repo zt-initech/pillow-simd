@@ -109,8 +109,8 @@ except (ImportError, OSError):
     # pypy emits an oserror
     _tkinter = None
 
-NAME = 'Pillow'
-PILLOW_VERSION = '3.3.0'
+NAME = 'Pillow-SIMD'
+PILLOW_VERSION = '3.3.0.post0'
 JPEG_ROOT = None
 JPEG2K_ROOT = None
 ZLIB_ROOT = None
@@ -225,7 +225,7 @@ class pil_build_ext(build_ext):
 
         if self.disable_platform_guessing:
             pass
-        
+
         elif sys.platform == "cygwin":
             # pythonX.Y.dll.a is in the /usr/lib/pythonX.Y/config directory
             _add_directory(library_dirs,
@@ -559,7 +559,8 @@ class pil_build_ext(build_ext):
         exts = [(Extension("PIL._imaging",
                            files,
                            libraries=libs,
-                           define_macros=defs))]
+                           define_macros=defs,
+                           extra_compile_args=['-msse4']))]
 
         #
         # additional libraries
