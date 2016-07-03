@@ -1,6 +1,15 @@
 Changelog (Pillow-SIMD)
 =======================
 
+3.3.0.post1
+-----------
+
+Alpha compositing
+~~~~~~~~~~~~~~~~~
+
+- SSE4 and AVX2 fixed-point full loading implementation.
+  Up to 4.6x faster.
+
 3.3.0.post0
 -----------
 
