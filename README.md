@@ -31,6 +31,8 @@ and AVX2 support.
 
 ## Status
 
+[![Uploadcare][uploadcare.logo]][uploadcare.com]
+
 Pillow-SIMD can be used in production. Pillow-SIMD has been operating on
 [Uploadcare][uploadcare.com] servers for more than 1 year.
 Uploadcare is SAAS for image storing and processing in the cloud
@@ -38,38 +40,43 @@ and the main sponsor of Pillow-SIMD project.
 
 Currently, following operations are accelerated:
 
-- Resize (convolution-based resample): SSE4, AVX2
+- Resize (convolution-based resampling): SSE4, AVX2
 - Gaussian and box blur: SSE4
+— Alpha composition: SSE4, AVX2
+— RGBA → RGBa (alpha premultiplication): SSE4, AVX2
+— RGBa → RGBA (division by alpha): AVX2
+
+See [CHANGES](CHANGES.SIMD.rst).
 
 
 ## Benchmarks
 
-The numbers in the table represent processed megapixels of source image
-per second. For example, if resize of 7712×4352 image is done in 0.5 seconds,
-the result will be 67.1 Mpx/s.
+The numbers in the table represent processed megapixels of source RGB 2560x1600
+image per second. For example, if resize of 2560x1600 image is done
+in 0.5 seconds, the result will be 8.2 Mpx/s.
 
-- ImageMagick 6.9.3-8 Q8 x86_64
 - Skia 53
+- ImageMagick 6.9.3-8 Q8 x86_64
 - Pillow 3.3.0
-- Pillow-SIMD 3.3.0.post0
+- Pillow-SIMD 3.3.0.post1
 
-Source    | Operation               | Filter  | IM   | Skia 53 | Pillow | SIMD SSE4 | SIMD AVX2 
-----------|-------------------------|---------|------|---------|--------|-----------|-----------
-2560x1600 | **Resize to 16x16**     | Bilinear| 41.37| 809.49  | 337.12 | 571.67    | 903.40
-          |                         | Bicubic | 20.58| 453.10  | 185.79 | 305.72    | 552.85
-          |                         | Lanczos | 14.17| 292.57  | 113.27 | 189.19    | 355.40
-          | **Resize to 320x180**   | Bilinear| 29.46| 592.76  | 209.06 | 366.33    | 558.57
-          |                         | Bicubic | 15.75| 327.68  | 124.43 | 224.91    | 353.53
-          |                         | Lanczos | 10.80| 196.92  |  82.25 | 153.10    | 244.22
-          | **Resize to 1920x1200** | Bilinear| 17.80| 192.30  |  55.87 | 131.27    | 152.11
-          |                         | Bicubic |  9.99| 112.84  |  43.64 |  90.20    | 112.34
-          |                         | Lanczos |  6.95| 104.76  |  34.51 |  72.55    | 103.16
-          | **Resize to 7712x4352** | Bilinear|  2.54|  20.58  |   6.71 |  16.06    |  20.33
-          |                         | Bicubic |  1.60|  16.52  |   5.51 |  12.65    |  16.46
-          |                         | Lanczos |  1.09|  12.05  |   4.62 |   9.84    |  13.38
-          | **Blur**                | 1px     |  6.60|         |  16.94 |  35.16
-          |                         | 10px    |  2.28|         |  16.94 |  35.47
-          |                         | 100px   |  0.34|         |  16.93 |  35.53
+Operation               | Filter  | IM   | Pillow| SIMD SSE4| SIMD AVX2| Skia 53
+------------------------|---------|------|-------|----------|----------|--------
+**Resize to 16x16**     | Bilinear| 41.37| 337.12|    571.67|    903.40|  809.49
+                        | Bicubic | 20.58| 185.79|    305.72|    552.85|  453.10
+                        | Lanczos | 14.17| 113.27|    189.19|    355.40|  292.57
+**Resize to 320x180**   | Bilinear| 29.46| 209.06|    366.33|    558.57|  592.76
+                        | Bicubic | 15.75| 124.43|    224.91|    353.53|  327.68
+                        | Lanczos | 10.80|  82.25|    153.10|    244.22|  196.92
+**Resize to 1920x1200** | Bilinear| 17.80|  55.87|    131.27|    152.11|  192.30
+                        | Bicubic |  9.99|  43.64|     90.20|    112.34|  112.84
+                        | Lanczos |  6.95|  34.51|     72.55|    103.16|  104.76
+**Resize to 7712x4352** | Bilinear|  2.54|   6.71|     16.06|     20.33|   20.58
+                        | Bicubic |  1.60|   5.51|     12.65|     16.46|   16.52
+                        | Lanczos |  1.09|   4.62|      9.84|     13.38|   12.05
+**Blur**                | 1px     |  6.60|  16.94|     35.16|          |        
+                        | 10px    |  2.28|  16.94|     35.47|          |        
+                        | 100px   |  0.34|  16.93|     35.53|          |        
 
 
 ### Some conclusion
@@ -173,3 +180,4 @@ will appear in next Pillow-SIMD version automatically.
   [original-contribute]: https://github.com/python-pillow/Pillow/blob/master/.github/CONTRIBUTING.md
   [gaussian-blur-changes]: http://pillow.readthedocs.io/en/3.2.x/releasenotes/2.7.0.html#gaussian-blur-and-unsharp-mask
   [uploadcare.com]: https://uploadcare.com/?utm_source=github&utm_medium=description&utm_campaign=pillow-simd
+  [uploadcare.logo]: https://ucarecdn.com/dc4b8363-e89f-402f-8ea8-ce606664069c/-/preview/
