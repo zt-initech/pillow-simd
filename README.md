@@ -42,9 +42,9 @@ Currently, following operations are accelerated:
 
 - Resize (convolution-based resampling): SSE4, AVX2
 - Gaussian and box blur: SSE4
-— Alpha composition: SSE4, AVX2
-— RGBA → RGBa (alpha premultiplication): SSE4, AVX2
-— RGBa → RGBA (division by alpha): AVX2
+- Alpha composition: SSE4, AVX2
+- RGBA → RGBa (alpha premultiplication): SSE4, AVX2
+- RGBa → RGBA (division by alpha): AVX2
 
 See [CHANGES](CHANGES.SIMD.rst).
 
