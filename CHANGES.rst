@@ -1,6 +1,26 @@
 Changelog (Pillow)
 ==================
 
+3.3.2 (2016-10-03)
+------------------
+
+- Fix negative image sizes in Storage.c #2105
+  [wiredfool]
+  
+- Fix integer overflow in map.c #2105
+  [wiredfool]
+
+
+3.3.1 (2016-08-18)
+------------------
+
+- Fix C90 compilation error for Tcl / Tk rewrite #2033
+  [matthew-brett]
+  
+- Fix image loading when rotating by 0 deg #2052
+  [homm]
+
+
 3.3.0 (2016-07-01)
 ------------------
 

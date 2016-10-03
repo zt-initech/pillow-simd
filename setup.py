@@ -110,7 +110,7 @@ except (ImportError, OSError):
     _tkinter = None
 
 NAME = 'Pillow-SIMD'
-PILLOW_VERSION = '3.3.0.post2'
+PILLOW_VERSION = '3.3.2.post0'
 JPEG_ROOT = None
 JPEG2K_ROOT = None
 ZLIB_ROOT = None
