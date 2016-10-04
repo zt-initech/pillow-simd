@@ -105,7 +105,7 @@ except (ImportError, OSError):
     # pypy emits an oserror
     _tkinter = None
 
-NAME = 'Pillow'
+NAME = 'Pillow-SIMD'
 PILLOW_VERSION = '4.0.0'
 JPEG_ROOT = None
 JPEG2K_ROOT = None
