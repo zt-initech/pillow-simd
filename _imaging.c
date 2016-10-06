@@ -71,7 +71,7 @@
  * See the README file for information on usage and redistribution.
  */
 
-#define PILLOW_VERSION "3.4.1.post0"
+#define PILLOW_VERSION "3.4.1.post1"
 
 #include "Python.h"
 
