@@ -167,12 +167,12 @@ precompute_coeffs(int inSize, int outSize, struct filter *filterp,
 
     /* coefficient buffer */
     /* malloc check ok, overflow checked above */
-    kk = malloc(outSize * kmax * sizeof(double));
+    kk = calloc(outSize * kmax, sizeof(double));
     if ( ! kk)
         return 0;
 
     /* malloc check ok, kmax*sizeof(double) > 2*sizeof(int) */
-    xbounds = malloc(outSize * 2 * sizeof(int));
+    xbounds = calloc(outSize * 2, sizeof(int));
     if ( ! xbounds) {
         free(kk);
         return 0;
