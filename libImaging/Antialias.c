@@ -176,24 +176,31 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
                 k[y - (int) ymin] = w;
                 ww = ww + w;
             }
-            if (ww == 0.0)
-                ww = 1.0;
-            else
-                ww = 1.0 / ww;
+            for (y = (int) ymin; y < (int) ymax; y++) {
+                k[y - (int) ymin] /= ww;
+            }
 
-                switch(imIn->type) {
-                case IMAGING_TYPE_UINT8:
-                    for (xx = 0; xx < imOut->xsize*4; xx++) {
-                        /* FIXME: skip over unused pixels */
-                        ss = 0.0;
-                        for (y = (int) ymin; y < (int) ymax; y++)
-                            ss = ss + (UINT8) imIn->image[y][xx] * k[y-(int) ymin];
-                        ss = ss * ww + 0.5;
-
-                        imOut->image[yy][xx] = clip8(ss);
+            switch(imIn->type) {
+            case IMAGING_TYPE_UINT8:
+                if (imIn->bands == 4) {
+                    // Тело для 4-х каналов
+                } else if (imIn->bands == 3) {
+                    for (xx = 0; xx < imOut->xsize; xx++) {
+                        ss0 = 0.5;
+                        ss1 = 0.5;
+                        ss2 = 0.5;
+                        for (y = (int) ymin; y < (int) ymax; y++) {
+                            ss0 = ss0 + (UINT8) imIn->image[y][xx*4+0] * k[y-(int) ymin];
+                            ss1 = ss1 + (UINT8) imIn->image[y][xx*4+1] * k[y-(int) ymin];
+                            ss2 = ss2 + (UINT8) imIn->image[y][xx*4+2] * k[y-(int) ymin];
+                        }
+                        imOut->image[yy][xx*4+0] = clip8(ss0);
+                        imOut->image[yy][xx*4+1] = clip8(ss1);
+                        imOut->image[yy][xx*4+2] = clip8(ss2);
                     }
-                    break;
                 }
+                break;
+            }
         }
         free(k);
     } else {
