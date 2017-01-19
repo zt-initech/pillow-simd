@@ -101,12 +101,13 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
     ImagingSectionCookie cookie;
     struct filter *filterp;
     float support, scale, filterscale;
-    float center, ww, ymin, ymax, xmin, xmax;
+    float center, ww;
     float ss, ss0, ss1, ss2;
+    int ymin, ymax, xmin, xmax;
     int kmax, xx, yy, x, y;
     float *k;
     float *kk;
-    float *xbounds;
+    int *xbounds;
 
     /* check modes */
     if (!imOut || !imIn || strcmp(imIn->mode, imOut->mode) != 0)
@@ -165,19 +166,19 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
             ww = 0.0;
             ss = 1.0 / filterscale;
             /* calculate filter weights */
-            ymin = floor(center - support);
-            if (ymin < 0.0)
-                ymin = 0.0;
-            ymax = ceil(center + support);
-            if (ymax > (float) imIn->ysize)
-                ymax = (float) imIn->ysize;
-            for (y = (int) ymin; y < (int) ymax; y++) {
+            ymin = (int) floor(center - support);
+            if (ymin < 0)
+                ymin = 0;
+            ymax = (int) ceil(center + support);
+            if (ymax > imIn->ysize)
+                ymax = imIn->ysize;
+            for (y = ymin; y < ymax; y++) {
                 float w = filterp->filter((y - center + 0.5) * ss) * ss;
-                k[y - (int) ymin] = w;
+                k[y - ymin] = w;
                 ww = ww + w;
             }
-            for (y = (int) ymin; y < (int) ymax; y++) {
-                k[y - (int) ymin] /= ww;
+            for (y = ymin; y < ymax; y++) {
+                k[y - ymin] /= ww;
             }
 
             switch(imIn->type) {
@@ -189,10 +190,10 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
                         ss0 = 0.5;
                         ss1 = 0.5;
                         ss2 = 0.5;
-                        for (y = (int) ymin; y < (int) ymax; y++) {
-                            ss0 = ss0 + (UINT8) imIn->image[y][xx*4+0] * k[y-(int) ymin];
-                            ss1 = ss1 + (UINT8) imIn->image[y][xx*4+1] * k[y-(int) ymin];
-                            ss2 = ss2 + (UINT8) imIn->image[y][xx*4+2] * k[y-(int) ymin];
+                        for (y = ymin; y < ymax; y++) {
+                            ss0 = ss0 + (UINT8) imIn->image[y][xx*4+0] * k[y-ymin];
+                            ss1 = ss1 + (UINT8) imIn->image[y][xx*4+1] * k[y-ymin];
+                            ss2 = ss2 + (UINT8) imIn->image[y][xx*4+2] * k[y-ymin];
                         }
                         imOut->image[yy][xx*4+0] = clip8(ss0);
                         imOut->image[yy][xx*4+1] = clip8(ss1);
@@ -207,7 +208,7 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
         kk = malloc(imOut->xsize * kmax * sizeof(float));
         if (!kk)
             return (Imaging) ImagingError_MemoryError();
-        xbounds = malloc(imOut->xsize * 2 * sizeof(float));
+        xbounds = malloc(imOut->xsize * 2 * sizeof(int));
         if ( ! xbounds) {
             free(kk);
             return 0;
@@ -218,20 +219,20 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
             center = (xx + 0.5) * scale;
             ww = 0.0;
             ss = 1.0 / filterscale;
-            xmin = floor(center - support);
-            if (xmin < 0.0)
-                xmin = 0.0;
-            xmax = ceil(center + support);
-            if (xmax > (float) imIn->xsize)
-                xmax = (float) imIn->xsize;
+            xmin = (int) floor(center - support);
+            if (xmin < 0)
+                xmin = 0;
+            xmax = (int) ceil(center + support);
+            if (xmax > imIn->xsize)
+                xmax = imIn->xsize;
             k = &kk[xx * kmax];
-            for (x = (int) xmin; x < (int) xmax; x++) {
+            for (x = xmin; x < xmax; x++) {
                 float w = filterp->filter((x - center + 0.5) * ss) * ss;
-                k[x - (int) xmin] = w;
+                k[x - xmin] = w;
                 ww = ww + w;
             }
-            for (x = (int) xmin; x < (int) xmax; x++) {
-                k[x - (int) xmin] /= ww;
+            for (x = xmin; x < xmax; x++) {
+                k[x - xmin] /= ww;
             }
             xbounds[xx * 2 + 0] = xmin;
             xbounds[xx * 2 + 1] = xmax;
@@ -249,10 +250,10 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
                             ss0 = 0.5;
                             ss1 = 0.5;
                             ss2 = 0.5;
-                            for (x = (int) xmin; x < (int) xmax; x++){
-                                ss0 = ss0 + (UINT8) imIn->image[yy][x*4+0] * k[x - (int) xmin];
-                                ss1 = ss1 + (UINT8) imIn->image[yy][x*4+1] * k[x - (int) xmin];
-                                ss2 = ss2 + (UINT8) imIn->image[yy][x*4+2] * k[x - (int) xmin];
+                            for (x = xmin; x < xmax; x++){
+                                ss0 = ss0 + (UINT8) imIn->image[yy][x*4+0] * k[x - xmin];
+                                ss1 = ss1 + (UINT8) imIn->image[yy][x*4+1] * k[x - xmin];
+                                ss2 = ss2 + (UINT8) imIn->image[yy][x*4+2] * k[x - xmin];
                             }
                             imOut->image[yy][xx*4+0] = clip8(ss0);
                             imOut->image[yy][xx*4+1] = clip8(ss1);
