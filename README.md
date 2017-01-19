@@ -65,7 +65,7 @@ Here is the list of libraries and their versions we've been up to during the ben
 - Skia 53
 - ImageMagick 6.9.3-8 Q8 x86_64
 - Pillow 3.4.1
-- Pillow-SIMD 3.4.1.post1
+- Pillow-SIMD 3.4.1.post2
 
 Operation               | Filter  | IM   | Pillow| SIMD SSE4| SIMD AVX2| Skia 53
 ------------------------|---------|------|-------|----------|----------|--------

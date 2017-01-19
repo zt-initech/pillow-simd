@@ -1,6 +1,11 @@
 Changelog (Pillow-SIMD)
 =======================
 
+3.4.1.post2
+-----------
+
+- Fixed compilation on 32bit systems
+
 3.4.1.post1
 -----------
 
