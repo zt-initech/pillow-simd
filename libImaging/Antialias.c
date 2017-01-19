@@ -101,8 +101,9 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
     ImagingSectionCookie cookie;
     struct filter *filterp;
     float support, scale, filterscale;
-    float center, ww, ss, ymin, ymax, xmin, xmax;
-    int kmax, xx, yy, x, y, b;
+    float center, ww, ymin, ymax, xmin, xmax;
+    float ss, ss0, ss1, ss2;
+    int kmax, xx, yy, x, y;
     float *k;
     float *kk;
     float *xbounds;
@@ -231,19 +232,27 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
         for (yy = 0; yy < imOut->ysize; yy++) {
                 switch(imIn->type) {
                 case IMAGING_TYPE_UINT8:
-                    for (xx = 0; xx < imOut->xsize; xx++) {
-                        k = &kk[xx * kmax];
-                        xmin = xbounds[xx * 2 + 0];
-                        xmax = xbounds[xx * 2 + 1];
-                        for (b = 0; b < imIn->bands; b++) {
-                            if (imIn->bands == 2 && b)
-                                b = 3; /* hack to deal with LA images */
-                            ss = 0.5;
-                            for (x = (int) xmin; x < (int) xmax; x++)
-                                ss = ss + (UINT8) imIn->image[yy][x*4+b] * k[x - (int) xmin];
-
-                            imOut->image[yy][xx*4+b] = clip8(ss);
+                    if (imIn->bands == 4) {
+                        // Тело для 4-х каналов
+                    } else if (imIn->bands == 3) {
+                        for (xx = 0; xx < imOut->xsize; xx++) {
+                            k = &kk[xx * kmax];
+                            xmin = xbounds[xx * 2 + 0];
+                            xmax = xbounds[xx * 2 + 1];
+                            ss0 = 0.5;
+                            ss1 = 0.5;
+                            ss2 = 0.5;
+                            for (x = (int) xmin; x < (int) xmax; x++){
+                                ss0 = ss0 + (UINT8) imIn->image[yy][x*4+0] * k[x - (int) xmin];
+                                ss1 = ss1 + (UINT8) imIn->image[yy][x*4+1] * k[x - (int) xmin];
+                                ss2 = ss2 + (UINT8) imIn->image[yy][x*4+2] * k[x - (int) xmin];
+                            }
+                            imOut->image[yy][xx*4+0] = clip8(ss0);
+                            imOut->image[yy][xx*4+1] = clip8(ss1);
+                            imOut->image[yy][xx*4+2] = clip8(ss2);
                         }
+                    } else {
+                        // Тело для двух и одного канала
                     }
                     break;
                 }
