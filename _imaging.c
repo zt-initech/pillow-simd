@@ -1624,10 +1624,7 @@ _stretch(ImagingObject* self, PyObject* args)
     imIn = self->image;
 
     /* two-pass resize: minimize size of intermediate image */
-    if ((Py_ssize_t) imIn->xsize * ysize < (Py_ssize_t) xsize * imIn->ysize)
-        imTemp = ImagingNew(imIn->mode, imIn->xsize, ysize);
-    else
-        imTemp = ImagingNew(imIn->mode, xsize, imIn->ysize);
+    imTemp = ImagingNew(imIn->mode, xsize, imIn->ysize);
     if (!imTemp)
         return NULL;
 

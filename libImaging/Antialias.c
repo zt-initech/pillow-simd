@@ -92,6 +92,8 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
     float center, ww, ss, ymin, ymax, xmin, xmax;
     int kmax, xx, yy, x, y, b;
     float *k;
+    float *kk;
+    float *xbounds;
 
     /* check modes */
     if (!imOut || !imIn || strcmp(imIn->mode, imOut->mode) != 0)
@@ -136,15 +138,15 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
     support = support * filterscale;
     kmax = (int) ceil(support) * 2 + 1;
 
-
-    /* coefficient buffer (with rounding safety margin) */
-    k = malloc(kmax * sizeof(float));
-    if (!k)
-        return (Imaging) ImagingError_MemoryError();
-
     ImagingSectionEnter(&cookie);
     if (imIn->xsize == imOut->xsize) {
         /* vertical stretch */
+
+        /* coefficient buffer (with rounding safety margin) */
+        k = malloc(kmax * sizeof(float));
+        if (!k)
+            return (Imaging) ImagingError_MemoryError();
+
         for (yy = 0; yy < imOut->ysize; yy++) {
             center = (yy + 0.5) * scale;
             ww = 0.0;
@@ -168,7 +170,6 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
 
                 switch(imIn->type) {
                 case IMAGING_TYPE_UINT8:
-                    /* n-bit grayscale */
                     for (xx = 0; xx < imOut->xsize*4; xx++) {
                         /* FIXME: skip over unused pixels */
                         ss = 0.0;
@@ -185,7 +186,17 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
                     break;
                 }
         }
+        free(k);
     } else {
+        kk = malloc(imOut->xsize * kmax * sizeof(float));
+        if (!kk)
+            return (Imaging) ImagingError_MemoryError();
+        xbounds = malloc(imOut->xsize * 2 * sizeof(float));
+        if ( ! xbounds) {
+            free(kk);
+            return 0;
+        }
+
         /* horizontal stretch */
         for (xx = 0; xx < imOut->xsize; xx++) {
             center = (xx + 0.5) * scale;
@@ -197,27 +208,31 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
             xmax = ceil(center + support);
             if (xmax > (float) imIn->xsize)
                 xmax = (float) imIn->xsize;
+            k = &kk[xx * kmax];
             for (x = (int) xmin; x < (int) xmax; x++) {
                 float w = filterp->filter((x - center + 0.5) * ss) * ss;
                 k[x - (int) xmin] = w;
                 ww = ww + w;
             }
-            if (ww == 0.0)
-                ww = 1.0;
-            else
-                ww = 1.0 / ww;
-
+            for (x = (int) xmin; x < (int) xmax; x++) {
+                k[x - (int) xmin] /= ww;
+            }
+            xbounds[xx * 2 + 0] = xmin;
+            xbounds[xx * 2 + 1] = xmax;
+        }
+        for (yy = 0; yy < imOut->ysize; yy++) {
                 switch(imIn->type) {
                 case IMAGING_TYPE_UINT8:
-                    /* n-bit grayscale */
-                    for (yy = 0; yy < imOut->ysize; yy++) {
+                    for (xx = 0; xx < imOut->xsize; xx++) {
+                        k = &kk[xx * kmax];
+                        xmin = xbounds[xx * 2 + 0];
+                        xmax = xbounds[xx * 2 + 1];
                         for (b = 0; b < imIn->bands; b++) {
                             if (imIn->bands == 2 && b)
                                 b = 3; /* hack to deal with LA images */
-                            ss = 0.0;
+                            ss = 0.5;
                             for (x = (int) xmin; x < (int) xmax; x++)
                                 ss = ss + (UINT8) imIn->image[yy][x*4+b] * k[x - (int) xmin];
-                            ss = ss * ww + 0.5;
                             if (ss < 0.5)
                                 imOut->image[yy][xx*4+b] = (UINT8) 0;
                             else if (ss >= 255.0)
@@ -229,10 +244,10 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
                     break;
                 }
         }
+        free(kk);
+        free(xbounds);
     }
     ImagingSectionLeave(&cookie);
-
-    free(k);
 
     return imOut;
 }
