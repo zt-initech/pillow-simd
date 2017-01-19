@@ -80,6 +80,18 @@ static inline float bicubic_filter(float x)
 
 static struct filter BICUBIC = { bicubic_filter, 2.0 };
 
+
+static inline UINT8 clip8(float in)
+{
+    int out = (int) in;
+    if (out >= 255)
+       return 255;
+    if (out <= 0)
+        return 0;
+    return (UINT8) out;
+}
+
+
 Imaging
 ImagingStretch(Imaging imOut, Imaging imIn, int filter)
 {
@@ -176,12 +188,8 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
                         for (y = (int) ymin; y < (int) ymax; y++)
                             ss = ss + (UINT8) imIn->image[y][xx] * k[y-(int) ymin];
                         ss = ss * ww + 0.5;
-                        if (ss < 0.5)
-                            imOut->image[yy][xx] = (UINT8) 0;
-                        else if (ss >= 255.0)
-                            imOut->image[yy][xx] = (UINT8) 255;
-                        else
-                            imOut->image[yy][xx] = (UINT8) ss;
+
+                        imOut->image[yy][xx] = clip8(ss);
                     }
                     break;
                 }
@@ -233,12 +241,8 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
                             ss = 0.5;
                             for (x = (int) xmin; x < (int) xmax; x++)
                                 ss = ss + (UINT8) imIn->image[yy][x*4+b] * k[x - (int) xmin];
-                            if (ss < 0.5)
-                                imOut->image[yy][xx*4+b] = (UINT8) 0;
-                            else if (ss >= 255.0)
-                                imOut->image[yy][xx*4+b] = (UINT8) 255;
-                            else
-                                imOut->image[yy][xx*4+b] = (UINT8) ss;
+
+                            imOut->image[yy][xx*4+b] = clip8(ss);
                         }
                     }
                     break;
