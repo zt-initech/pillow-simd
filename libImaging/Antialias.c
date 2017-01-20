@@ -91,6 +91,26 @@ static inline UINT8 clip8(float in)
     return (UINT8) out;
 }
 
+#ifdef __GNUC__
+    #define GCC_VERSION (__GNUC__ * 10000 \
+                       + __GNUC_MINOR__ * 100 \
+                       + __GNUC_PATCHLEVEL__)
+#endif
+
+/* This is work around bug in GCC prior 4.9 in 64 bit mode.
+   GCC generates code with partial dependency which 3 times slower.
+   See: http://stackoverflow.com/a/26588074/253146 */
+#if defined(__x86_64__) && defined(__SSE__) &&  ! defined(__NO_INLINE__) && \
+    ! defined(__clang__) && defined(GCC_VERSION) && (GCC_VERSION < 40900)
+static float __attribute__((always_inline)) i2f(int v) {
+    float x;
+    __asm__("xorps %0, %0; cvtsi2ss %1, %0" : "=X"(x) : "r"(v) );
+    return x;
+}
+#else
+static float inline i2f(int v) { return (float) v; }
+#endif
+
 
 Imaging
 ImagingStretch(Imaging imOut, Imaging imIn, int filter)
@@ -191,9 +211,9 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
                         ss1 = 0.5;
                         ss2 = 0.5;
                         for (y = ymin; y < ymax; y++) {
-                            ss0 = ss0 + (UINT8) imIn->image[y][xx*4+0] * k[y-ymin];
-                            ss1 = ss1 + (UINT8) imIn->image[y][xx*4+1] * k[y-ymin];
-                            ss2 = ss2 + (UINT8) imIn->image[y][xx*4+2] * k[y-ymin];
+                            ss0 = ss0 + i2f((UINT8) imIn->image[y][xx*4+0]) * k[y-ymin];
+                            ss1 = ss1 + i2f((UINT8) imIn->image[y][xx*4+1]) * k[y-ymin];
+                            ss2 = ss2 + i2f((UINT8) imIn->image[y][xx*4+2]) * k[y-ymin];
                         }
                         imOut->image[yy][xx*4+0] = clip8(ss0);
                         imOut->image[yy][xx*4+1] = clip8(ss1);
@@ -251,9 +271,9 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
                             ss1 = 0.5;
                             ss2 = 0.5;
                             for (x = xmin; x < xmax; x++){
-                                ss0 = ss0 + (UINT8) imIn->image[yy][x*4+0] * k[x - xmin];
-                                ss1 = ss1 + (UINT8) imIn->image[yy][x*4+1] * k[x - xmin];
-                                ss2 = ss2 + (UINT8) imIn->image[yy][x*4+2] * k[x - xmin];
+                                ss0 = ss0 + i2f((UINT8) imIn->image[yy][x*4+0]) * k[x - xmin];
+                                ss1 = ss1 + i2f((UINT8) imIn->image[yy][x*4+1]) * k[x - xmin];
+                                ss2 = ss2 + i2f((UINT8) imIn->image[yy][x*4+2]) * k[x - xmin];
                             }
                             imOut->image[yy][xx*4+0] = clip8(ss0);
                             imOut->image[yy][xx*4+1] = clip8(ss1);
