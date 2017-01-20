@@ -16,6 +16,10 @@
 #include "Imaging.h"
 
 #include <math.h>
+#include <emmintrin.h>
+#include <mmintrin.h>
+#include <smmintrin.h>
+
 
 /* resampling filters (from antialias.py) */
 
@@ -92,6 +96,61 @@ static inline UINT8 clip8(float in)
 }
 
 
+void
+ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
+    int xsize, int *xbounds, float *kk, int kmax)
+{
+    int xmin, xmax, xx, x;
+    float *k;
+
+    __m128i mmmax = _mm_set1_epi32(255);
+    __m128i mmmin = _mm_set1_epi32(0);
+    __m128i shiftmask = _mm_set_epi8(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,12,8,4,0);
+
+    for (xx = 0; xx < xsize; xx++) {
+        __m128 sss = _mm_set1_ps(0.5);
+        xmin = xbounds[xx * 2 + 0];
+        xmax = xbounds[xx * 2 + 1];
+        k = &kk[xx * kmax];
+        for (x = xmin; x < xmax; x++) {
+            __m128i pix = _mm_cvtepu8_epi32(*(__m128i *) &lineIn[x]);
+            __m128 mmk = _mm_set1_ps(k[x - xmin]);
+            __m128 mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
+            sss = _mm_add_ps(sss, mul);
+        }
+        __m128i ssi = _mm_cvtps_epi32(sss);
+        ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, ssi));
+        lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(ssi, shiftmask));
+    }
+}
+
+
+void
+ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
+    int ymin, int ymax, float *k)
+{
+    int y, xx;
+
+    __m128i mmmax = _mm_set1_epi32(255);
+    __m128i mmmin = _mm_set1_epi32(0);
+    __m128i shiftmask = _mm_set_epi8(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,12,8,4,0);
+    /* n-bit grayscale */
+    for (xx = 0; xx < imIn->xsize; xx++) {
+        __m128 sss = _mm_set1_ps(0.5);
+        for (y = ymin; y < ymax; y++) {
+            __m128i pix = _mm_cvtepu8_epi32(*(__m128i *) &imIn->image32[y][xx]);
+            __m128 mmk = _mm_set1_ps(k[y - ymin]);
+            __m128 mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
+            sss = _mm_add_ps(sss, mul);
+        }
+        __m128i ssi = _mm_cvtps_epi32(sss);
+        ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, ssi));
+        lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(ssi, shiftmask));
+    }
+}
+
+
+
 Imaging
 ImagingStretch(Imaging imOut, Imaging imIn, int filter)
 {
@@ -101,8 +160,7 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
     ImagingSectionCookie cookie;
     struct filter *filterp;
     float support, scale, filterscale;
-    float center, ww;
-    float ss, ss0, ss1, ss2;
+    float center, ww, ss;
     int ymin, ymax, xmin, xmax;
     int kmax, xx, yy, x, y;
     float *k;
@@ -183,23 +241,10 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
 
             switch(imIn->type) {
             case IMAGING_TYPE_UINT8:
-                if (imIn->bands == 4) {
-                    // Тело для 4-х каналов
-                } else if (imIn->bands == 3) {
-                    for (xx = 0; xx < imOut->xsize; xx++) {
-                        ss0 = 0.5;
-                        ss1 = 0.5;
-                        ss2 = 0.5;
-                        for (y = ymin; y < ymax; y++) {
-                            ss0 = ss0 + (UINT8) imIn->image[y][xx*4+0] * k[y-ymin];
-                            ss1 = ss1 + (UINT8) imIn->image[y][xx*4+1] * k[y-ymin];
-                            ss2 = ss2 + (UINT8) imIn->image[y][xx*4+2] * k[y-ymin];
-                        }
-                        imOut->image[yy][xx*4+0] = clip8(ss0);
-                        imOut->image[yy][xx*4+1] = clip8(ss1);
-                        imOut->image[yy][xx*4+2] = clip8(ss2);
-                    }
-                }
+                ImagingResampleVerticalConvolution8u(
+                    (UINT32 *) imOut->image32[yy], imIn,
+                    ymin, ymax, k
+                );
                 break;
             }
         }
@@ -240,28 +285,11 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
         for (yy = 0; yy < imOut->ysize; yy++) {
                 switch(imIn->type) {
                 case IMAGING_TYPE_UINT8:
-                    if (imIn->bands == 4) {
-                        // Тело для 4-х каналов
-                    } else if (imIn->bands == 3) {
-                        for (xx = 0; xx < imOut->xsize; xx++) {
-                            k = &kk[xx * kmax];
-                            xmin = xbounds[xx * 2 + 0];
-                            xmax = xbounds[xx * 2 + 1];
-                            ss0 = 0.5;
-                            ss1 = 0.5;
-                            ss2 = 0.5;
-                            for (x = xmin; x < xmax; x++){
-                                ss0 = ss0 + (UINT8) imIn->image[yy][x*4+0] * k[x - xmin];
-                                ss1 = ss1 + (UINT8) imIn->image[yy][x*4+1] * k[x - xmin];
-                                ss2 = ss2 + (UINT8) imIn->image[yy][x*4+2] * k[x - xmin];
-                            }
-                            imOut->image[yy][xx*4+0] = clip8(ss0);
-                            imOut->image[yy][xx*4+1] = clip8(ss1);
-                            imOut->image[yy][xx*4+2] = clip8(ss2);
-                        }
-                    } else {
-                        // Тело для двух и одного канала
-                    }
+                    ImagingResampleHorizontalConvolution8u(
+                        (UINT32 *) imOut->image32[yy],
+                        (UINT32 *) imIn->image32[yy],
+                        imOut->xsize, xbounds, kk, kmax
+                    );
                     break;
                 }
         }
