@@ -103,10 +103,6 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
     int xmin, xmax, xx, x;
     float *k;
 
-    __m128i mmmax = _mm_set1_epi32(255);
-    __m128i mmmin = _mm_set1_epi32(0);
-    __m128i shiftmask = _mm_set_epi8(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,12,8,4,0);
-
     for (xx = 0; xx < xsize; xx++) {
         __m128 sss = _mm_set1_ps(0.5);
         xmin = xbounds[xx * 2 + 0];
@@ -119,8 +115,8 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
             sss = _mm_add_ps(sss, mul);
         }
         __m128i ssi = _mm_cvtps_epi32(sss);
-        ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, ssi));
-        lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(ssi, shiftmask));
+        ssi = _mm_packs_epi32(ssi, ssi);
+        lineOut[xx] = _mm_cvtsi128_si32(_mm_packus_epi16(ssi, ssi));
     }
 }
 
@@ -131,10 +127,6 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
 {
     int y, xx;
 
-    __m128i mmmax = _mm_set1_epi32(255);
-    __m128i mmmin = _mm_set1_epi32(0);
-    __m128i shiftmask = _mm_set_epi8(-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,12,8,4,0);
-    /* n-bit grayscale */
     for (xx = 0; xx < imIn->xsize; xx++) {
         __m128 sss = _mm_set1_ps(0.5);
         for (y = ymin; y < ymax; y++) {
@@ -144,8 +136,8 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
             sss = _mm_add_ps(sss, mul);
         }
         __m128i ssi = _mm_cvtps_epi32(sss);
-        ssi = _mm_max_epi32(mmmin, _mm_min_epi32(mmmax, ssi));
-        lineOut[xx] = _mm_cvtsi128_si32(_mm_shuffle_epi8(ssi, shiftmask));
+        ssi = _mm_packs_epi32(ssi, ssi);
+        lineOut[xx] = _mm_cvtsi128_si32(_mm_packus_epi16(ssi, ssi));
     }
 }
 
