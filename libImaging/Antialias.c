@@ -20,6 +20,10 @@
 #include <mmintrin.h>
 #include <smmintrin.h>
 
+#ifdef __AVX2__
+    #include "immintrin.h"
+#endif
+
 
 /* resampling filters (from antialias.py) */
 
@@ -125,9 +129,25 @@ void
 ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
     int ymin, int ymax, float *k)
 {
-    int y, xx;
+    int y, xx = 0;
 
-    for (xx = 0; xx < imIn->xsize; xx++) {
+#ifdef __AVX2__
+    for (; xx < imIn->xsize - 1; xx += 2) {
+        __m256 sss = _mm256_set1_ps(0.5);
+        for (y = ymin; y < ymax; y++) {
+            __m256i pix = _mm256_cvtepu8_epi32(*(__m128i *) &imIn->image32[y][xx]);
+            __m256 mmk = _mm256_set1_ps(k[y - ymin]);
+            __m256 mul = _mm256_mul_ps(_mm256_cvtepi32_ps(pix), mmk);
+            sss = _mm256_add_ps(sss, mul);
+        }
+        __m256i ssi = _mm256_cvtps_epi32(sss);
+        ssi = _mm256_packs_epi32(ssi, ssi);
+        ssi = _mm256_packus_epi16(ssi, ssi);
+        _mm_storel_epi64((__m128i *) &lineOut[xx], _mm256_castsi256_si128(ssi));
+    }
+#endif
+
+    for (; xx < imIn->xsize; xx++) {
         __m128 sss = _mm_set1_ps(0.5);
         for (y = ymin; y < ymax; y++) {
             __m128i pix = _mm_cvtepu8_epi32(*(__m128i *) &imIn->image32[y][xx]);
