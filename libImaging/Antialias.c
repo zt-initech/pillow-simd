@@ -108,16 +108,32 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
     float *k;
 
     for (xx = 0; xx < xsize; xx++) {
-        __m128 sss = _mm_set1_ps(0.5);
         xmin = xbounds[xx * 2 + 0];
         xmax = xbounds[xx * 2 + 1];
         k = &kk[xx * kmax];
-        for (x = xmin; x < xmax; x++) {
+        x = xmin;
+#ifdef __AVX2__
+        __m256 sss256 = _mm256_set1_ps(0.25);
+        for (; x < xmax - 1; x += 2) {
+            __m256 mmk = _mm256_set1_ps(k[x - xmin]);
+            mmk = _mm256_insertf128_ps(mmk, _mm_set1_ps(k[x - xmin + 1]), 1);
+            __m256i pix = _mm256_cvtepu8_epi32(*(__m128i *) &lineIn[x]);
+            __m256 mul = _mm256_mul_ps(_mm256_cvtepi32_ps(pix), mmk);
+            sss256 = _mm256_add_ps(sss256, mul);
+        }
+        __m128 sss = _mm_add_ps(
+            _mm256_castps256_ps128(sss256),
+            _mm256_extractf128_ps(sss256, 1));
+#else
+        __m128 sss = _mm_set1_ps(0.5);
+#endif
+        for (; x < xmax; x++) {
             __m128i pix = _mm_cvtepu8_epi32(*(__m128i *) &lineIn[x]);
             __m128 mmk = _mm_set1_ps(k[x - xmin]);
             __m128 mul = _mm_mul_ps(_mm_cvtepi32_ps(pix), mmk);
             sss = _mm_add_ps(sss, mul);
         }
+
         __m128i ssi = _mm_cvtps_epi32(sss);
         ssi = _mm_packs_epi32(ssi, ssi);
         lineOut[xx] = _mm_cvtsi128_si32(_mm_packus_epi16(ssi, ssi));
