@@ -140,3 +140,4 @@ env:
   global:
     # travis encrypt AUTH_TOKEN=
     secure: "Vzm7aG1Qv0SDQcqiPzZMedNLn5ZmpL7IzF0DYnqcD+/l+zmKU22SnJBcX0uVXumo+r7eZfpsShpqfcdsZvMlvmQnwz+Y6AGKQru9tCKZbTMnuRjWKKXekC+tr8Xt9CKvRVtte5PyXW31paxUI3/e+fQGBwoFjEEC+6EpEOjeRfE="
+
