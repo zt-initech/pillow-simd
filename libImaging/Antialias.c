@@ -197,8 +197,8 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
                 k[y - ymin] = w;
                 ww = ww + w;
             }
-            for (y = ymin; y < ymax; y++) {
-                k[y - ymin] /= ww;
+            for (y = 0; y < ymax - ymin; y++) {
+                k[y] /= ww;
             }
 
             switch(imIn->type) {
@@ -251,8 +251,8 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
                 k[x - xmin] = w;
                 ww = ww + w;
             }
-            for (x = xmin; x < xmax; x++) {
-                k[x - xmin] /= ww;
+            for (x = 0; x < xmax - xmin; x++) {
+                k[x] /= ww;
             }
             xbounds[xx * 2 + 0] = xmin;
             xbounds[xx * 2 + 1] = xmax;
