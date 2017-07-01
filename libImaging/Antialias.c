@@ -109,17 +109,17 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
         intk = &intkk[xx * kmax];
         x = xmin;
 #ifdef __AVX2__
-        __m256 sss256 = _mm256_set1_ps(0.25);
+        __m256i sss256 = _mm256_set1_epi32(1 << (PRECISION_BITS -2));
         for (; x < xmax - 1; x += 2) {
-            __m256 mmk = _mm256_set1_ps(k[x - xmin]);
-            mmk = _mm256_insertf128_ps(mmk, _mm_set1_ps(k[x - xmin + 1]), 1);
+            __m256i mmk = _mm256_set1_epi32(intk[x - xmin]);
+            mmk = _mm256_insertf128_si256(mmk, _mm_set1_epi32(intk[x - xmin + 1]), 1);
             __m256i pix = _mm256_cvtepu8_epi32(*(__m128i *) &lineIn[x]);
-            __m256 mul = _mm256_mul_ps(_mm256_cvtepi32_ps(pix), mmk);
-            sss256 = _mm256_add_ps(sss256, mul);
+            __m256i mul = _mm256_mullo_epi32(pix, mmk);
+            sss256 = _mm256_add_epi32(sss256, mul);
         }
-        __m128 sss = _mm_add_ps(
-            _mm256_castps256_ps128(sss256),
-            _mm256_extractf128_ps(sss256, 1));
+        __m128i sss = _mm_add_epi32(
+            _mm256_castsi256_si128(sss256),
+            _mm256_extractf128_si256(sss256, 1));
 #else
         __m128i sss = _mm_set1_epi32(1 << (PRECISION_BITS -1));
 #endif
@@ -144,17 +144,17 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
 
 #ifdef __AVX2__
     for (; xx < imIn->xsize - 1; xx += 2) {
-        __m256 sss = _mm256_set1_ps(0.5);
+        __m256i sss = _mm256_set1_epi32(1 << (PRECISION_BITS -1));
         for (y = ymin; y < ymax; y++) {
             __m256i pix = _mm256_cvtepu8_epi32(*(__m128i *) &imIn->image32[y][xx]);
-            __m256 mmk = _mm256_set1_ps(k[y - ymin]);
-            __m256 mul = _mm256_mul_ps(_mm256_cvtepi32_ps(pix), mmk);
-            sss = _mm256_add_ps(sss, mul);
+            __m256i mmk = _mm256_set1_epi32(intk[y - ymin]);
+            __m256i mul = _mm256_mullo_epi32(pix, mmk);
+            sss = _mm256_add_epi32(sss, mul);
         }
-        __m256i ssi = _mm256_cvtps_epi32(sss);
-        ssi = _mm256_packs_epi32(ssi, ssi);
-        ssi = _mm256_packus_epi16(ssi, ssi);
-        _mm_storel_epi64((__m128i *) &lineOut[xx], _mm256_castsi256_si128(ssi));
+        sss = _mm256_srai_epi32(sss, PRECISION_BITS);
+        sss = _mm256_packs_epi32(sss, sss);
+        sss = _mm256_packus_epi16(sss, sss);
+        _mm_storel_epi64((__m128i *) &lineOut[xx], _mm256_castsi256_si128(sss));
     }
 #endif
 
