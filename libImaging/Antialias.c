@@ -89,6 +89,13 @@ static inline float bicubic_filter(float x)
 static struct filter BICUBIC = { bicubic_filter, 2.0 };
 
 
+/* 8 bits for result. Filter can have negative areas.
+   In one cases the sum of the coefficients will be negative,
+   in the other it will be more than 1.0. That is why we need
+   two extra bits for overflow and int type. */
+#define PRECISION_BITS (32 - 8 - 2)
+
+
 void
 ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
     int xsize, int *xbounds, float *kk, int kmax)
@@ -180,8 +187,8 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
     float center, ww, ss;
     int ymin, ymax, xmin, xmax;
     int kmax, xx, yy, x, y;
-    float *k;
-    float *kk;
+    int *intk, *intkk;
+    float *k, *kk;
     int *xbounds;
 
     /* check modes */
@@ -235,6 +242,11 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
         k = malloc(kmax * sizeof(float));
         if (!k)
             return (Imaging) ImagingError_MemoryError();
+        intk = malloc(kmax * sizeof(int));
+        if (!intk) {
+            free(k);
+            return (Imaging) ImagingError_MemoryError();
+        }
 
         for (yy = 0; yy < imOut->ysize; yy++) {
             center = (yy + 0.5) * scale;
@@ -254,6 +266,7 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
             }
             for (y = 0; y < ymax - ymin; y++) {
                 k[y] /= ww;
+                intk[y] = (int) (k[y] * (1 << PRECISION_BITS));
             }
 
             switch(imIn->type) {
@@ -266,13 +279,20 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
             }
         }
         free(k);
+        free(intk);
     } else {
         kk = malloc(imOut->xsize * kmax * sizeof(float));
         if (!kk)
             return (Imaging) ImagingError_MemoryError();
+        intkk = malloc(imOut->xsize * kmax * sizeof(int));
+        if (!intkk) {
+            free(kk);
+            return (Imaging) ImagingError_MemoryError();
+        }
         xbounds = malloc(imOut->xsize * 2 * sizeof(int));
         if ( ! xbounds) {
             free(kk);
+            free(intkk);
             return 0;
         }
 
@@ -288,6 +308,7 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
             if (xmax > imIn->xsize)
                 xmax = imIn->xsize;
             k = &kk[xx * kmax];
+            intk = &intkk[xx * kmax];
             for (x = xmin; x < xmax; x++) {
                 float w = filterp->filter((x - center + 0.5) * ss) * ss;
                 k[x - xmin] = w;
@@ -295,6 +316,7 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
             }
             for (x = 0; x < xmax - xmin; x++) {
                 k[x] /= ww;
+                intk[x] = (int) (k[x] * (1 << PRECISION_BITS));
             }
             xbounds[xx * 2 + 0] = xmin;
             xbounds[xx * 2 + 1] = xmax;
@@ -311,6 +333,7 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
                 }
         }
         free(kk);
+        free(intkk);
         free(xbounds);
     }
     ImagingSectionLeave(&cookie);
