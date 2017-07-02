@@ -126,12 +126,24 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
 #else
         __m128i sss = _mm_set1_epi32(1 << (coefs_precision -1));
 #endif
+
+        for (; x < xmax - 1; x += 2) {
+            __m128i pix;
+            __m128i source = _mm_loadl_epi64((__m128i *) &lineIn[x]);
+            __m128i mmk = _mm_set1_epi32(*(INT32 *) &intk[x - xmin]);
+
+            pix = _mm_shuffle_epi8(source, _mm_set_epi8(
+                -1,7, -1,3, -1,6, -1,2, -1,5, -1,1, -1,4, -1,0));
+            sss = _mm_add_epi32(sss, _mm_madd_epi16(pix, mmk));
+        }
+
         for (; x < xmax; x++) {
             __m128i pix = _mm_cvtepu8_epi32(*(__m128i *) &lineIn[x]);
-            __m128i mmk = _mm_set1_epi32(intk[x - xmin]);
-            __m128i mul = _mm_mullo_epi32(pix, mmk);
+            __m128i mmk = _mm_set1_epi32(*(INT32 *) &intk[x - xmin]);
+            __m128i mul = _mm_madd_epi16(pix, mmk);
             sss = _mm_add_epi32(sss, mul);
         }
+
         sss = _mm_srai_epi32(sss, coefs_precision);
         sss = _mm_packs_epi32(sss, sss);
         lineOut[xx] = _mm_cvtsi128_si32(_mm_packus_epi16(sss, sss));
@@ -163,10 +175,26 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
 
     for (; xx < imIn->xsize; xx++) {
         __m128i sss = _mm_set1_epi32(1 << (coefs_precision -1));
-        for (y = ymin; y < ymax; y++) {
+        y = ymin;
+        for (; y < ymax - 1; y += 2) {
+            __m128i source, source1, source2;
+            __m128i pix, mmk;
+            mmk = _mm_set1_epi32(*(INT32 *) &intk[y - ymin]);
+
+            source1 = _mm_cvtsi32_si128(  // top line
+                *(int *) &imIn->image32[y][xx]);
+            source2 = _mm_cvtsi32_si128(  // bottom line
+                *(int *) &imIn->image32[y + 1][xx]);
+            
+            source = _mm_unpacklo_epi8(source1, source2);
+            pix = _mm_unpacklo_epi8(source, _mm_setzero_si128());
+            sss = _mm_add_epi32(sss, _mm_madd_epi16(pix, mmk));
+        }
+
+        for (; y < ymax; y++) {
             __m128i pix = _mm_cvtepu8_epi32(*(__m128i *) &imIn->image32[y][xx]);
-            __m128i mmk = _mm_set1_epi32(intk[y - ymin]);
-            __m128i mul = _mm_mullo_epi32(pix, mmk);
+            __m128i mmk = _mm_set1_epi32(*(INT32 *) &intk[y - ymin]);
+            __m128i mul = _mm_madd_epi16(pix, mmk);
             sss = _mm_add_epi32(sss, mul);
         }
         sss = _mm_srai_epi32(sss, coefs_precision);
