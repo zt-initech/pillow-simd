@@ -95,13 +95,16 @@ static struct filter BICUBIC = { bicubic_filter, 2.0 };
    two extra bits for overflow and int type. */
 #define PRECISION_BITS (32 - 8 - 2)
 
+/* We use signed INT16 type to store coefficients. */
+#define MAX_COEFS_PRECISION (16 - 1)
+
 
 void
 ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
-    int xsize, int *xbounds, int *intkk, int kmax)
+    int xsize, int *xbounds, INT16 *intkk, int kmax, int coefs_precision)
 {
     int xmin, xmax, xx, x;
-    int *intk;
+    INT16 *intk;
 
     for (xx = 0; xx < xsize; xx++) {
         xmin = xbounds[xx * 2 + 0];
@@ -109,7 +112,7 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
         intk = &intkk[xx * kmax];
         x = xmin;
 #ifdef __AVX2__
-        __m256i sss256 = _mm256_set1_epi32(1 << (PRECISION_BITS -2));
+        __m256i sss256 = _mm256_set1_epi32(1 << (coefs_precision -2));
         for (; x < xmax - 1; x += 2) {
             __m256i mmk = _mm256_set1_epi32(intk[x - xmin]);
             mmk = _mm256_insertf128_si256(mmk, _mm_set1_epi32(intk[x - xmin + 1]), 1);
@@ -121,7 +124,7 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
             _mm256_castsi256_si128(sss256),
             _mm256_extractf128_si256(sss256, 1));
 #else
-        __m128i sss = _mm_set1_epi32(1 << (PRECISION_BITS -1));
+        __m128i sss = _mm_set1_epi32(1 << (coefs_precision -1));
 #endif
         for (; x < xmax; x++) {
             __m128i pix = _mm_cvtepu8_epi32(*(__m128i *) &lineIn[x]);
@@ -129,7 +132,7 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
             __m128i mul = _mm_mullo_epi32(pix, mmk);
             sss = _mm_add_epi32(sss, mul);
         }
-        sss = _mm_srai_epi32(sss, PRECISION_BITS);
+        sss = _mm_srai_epi32(sss, coefs_precision);
         sss = _mm_packs_epi32(sss, sss);
         lineOut[xx] = _mm_cvtsi128_si32(_mm_packus_epi16(sss, sss));
     }
@@ -138,20 +141,20 @@ ImagingResampleHorizontalConvolution8u(UINT32 *lineOut, UINT32 *lineIn,
 
 void
 ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
-    int ymin, int ymax, int *intk)
+    int ymin, int ymax, INT16 *intk, int coefs_precision)
 {
     int y, xx = 0;
 
 #ifdef __AVX2__
     for (; xx < imIn->xsize - 1; xx += 2) {
-        __m256i sss = _mm256_set1_epi32(1 << (PRECISION_BITS -1));
+        __m256i sss = _mm256_set1_epi32(1 << (coefs_precision -1));
         for (y = ymin; y < ymax; y++) {
             __m256i pix = _mm256_cvtepu8_epi32(*(__m128i *) &imIn->image32[y][xx]);
             __m256i mmk = _mm256_set1_epi32(intk[y - ymin]);
             __m256i mul = _mm256_mullo_epi32(pix, mmk);
             sss = _mm256_add_epi32(sss, mul);
         }
-        sss = _mm256_srai_epi32(sss, PRECISION_BITS);
+        sss = _mm256_srai_epi32(sss, coefs_precision);
         sss = _mm256_packs_epi32(sss, sss);
         sss = _mm256_packus_epi16(sss, sss);
         _mm_storel_epi64((__m128i *) &lineOut[xx], _mm256_castsi256_si128(sss));
@@ -159,14 +162,14 @@ ImagingResampleVerticalConvolution8u(UINT32 *lineOut, Imaging imIn,
 #endif
 
     for (; xx < imIn->xsize; xx++) {
-        __m128i sss = _mm_set1_epi32(1 << (PRECISION_BITS -1));
+        __m128i sss = _mm_set1_epi32(1 << (coefs_precision -1));
         for (y = ymin; y < ymax; y++) {
             __m128i pix = _mm_cvtepu8_epi32(*(__m128i *) &imIn->image32[y][xx]);
             __m128i mmk = _mm_set1_epi32(intk[y - ymin]);
             __m128i mul = _mm_mullo_epi32(pix, mmk);
             sss = _mm_add_epi32(sss, mul);
         }
-        sss = _mm_srai_epi32(sss, PRECISION_BITS);
+        sss = _mm_srai_epi32(sss, coefs_precision);
         sss = _mm_packs_epi32(sss, sss);
         lineOut[xx] = _mm_cvtsi128_si32(_mm_packus_epi16(sss, sss));
     }
@@ -186,9 +189,10 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
     float center, ww, ss;
     int ymin, ymax, xmin, xmax;
     int kmax, xx, yy, x, y;
-    int *intk, *intkk;
-    float *k, *kk;
+    INT16 *intk, *intkk;
+    float *k, *kk, maxkk;
     int *xbounds;
+    int coefs_precision;
 
     /* check modes */
     if (!imOut || !imIn || strcmp(imIn->mode, imOut->mode) != 0)
@@ -241,7 +245,7 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
         k = malloc(kmax * sizeof(float));
         if (!k)
             return (Imaging) ImagingError_MemoryError();
-        intk = malloc(kmax * sizeof(int));
+        intk = malloc(kmax * sizeof(INT16));
         if (!intk) {
             free(k);
             return (Imaging) ImagingError_MemoryError();
@@ -265,14 +269,29 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
             }
             for (y = 0; y < ymax - ymin; y++) {
                 k[y] /= ww;
-                intk[y] = (int) (k[y] * (1 << PRECISION_BITS));
+            }
+
+            maxkk = k[0];
+            for (y = 0; y < ymax - ymin; y++) {
+                if (maxkk < k[y]) {
+                    maxkk = k[y];
+                }
+            }
+            coefs_precision = 0;
+            while (maxkk < (1 << (MAX_COEFS_PRECISION-1)) && (coefs_precision < PRECISION_BITS)) {
+                maxkk *= 2;
+                coefs_precision += 1;
+            };
+
+            for (y = 0; y < ymax - ymin; y++) {
+                intk[y] = (int) (k[y] * (1 << coefs_precision));
             }
 
             switch(imIn->type) {
             case IMAGING_TYPE_UINT8:
                 ImagingResampleVerticalConvolution8u(
                     (UINT32 *) imOut->image32[yy], imIn,
-                    ymin, ymax, intk
+                    ymin, ymax, intk, coefs_precision
                 );
                 break;
             }
@@ -280,10 +299,10 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
         free(k);
         free(intk);
     } else {
-        kk = malloc(imOut->xsize * kmax * sizeof(float));
+        kk = calloc(imOut->xsize * kmax, sizeof(float));
         if (!kk)
             return (Imaging) ImagingError_MemoryError();
-        intkk = malloc(imOut->xsize * kmax * sizeof(int));
+        intkk = malloc(imOut->xsize * kmax * sizeof(INT16));
         if (!intkk) {
             free(kk);
             return (Imaging) ImagingError_MemoryError();
@@ -307,7 +326,6 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
             if (xmax > imIn->xsize)
                 xmax = imIn->xsize;
             k = &kk[xx * kmax];
-            intk = &intkk[xx * kmax];
             for (x = xmin; x < xmax; x++) {
                 float w = filterp->filter((x - center + 0.5) * ss) * ss;
                 k[x - xmin] = w;
@@ -315,18 +333,34 @@ ImagingStretch(Imaging imOut, Imaging imIn, int filter)
             }
             for (x = 0; x < xmax - xmin; x++) {
                 k[x] /= ww;
-                intk[x] = (int) (k[x] * (1 << PRECISION_BITS));
             }
             xbounds[xx * 2 + 0] = xmin;
             xbounds[xx * 2 + 1] = xmax;
         }
+
+        maxkk = kk[0];
+        for (x = 0; x < imOut->xsize * kmax; x++) {
+            if (maxkk < kk[x]) {
+                maxkk = kk[x];
+            }
+        }
+        coefs_precision = 0;
+        while (maxkk < (1 << (MAX_COEFS_PRECISION-1)) && (coefs_precision < PRECISION_BITS)) {
+            maxkk *= 2;
+            coefs_precision += 1;
+        };
+        
+        for (x = 0; x < imOut->xsize * kmax; x++) {
+            intkk[x] = (int) (kk[x] * (1 << coefs_precision));
+        }
+
         for (yy = 0; yy < imOut->ysize; yy++) {
                 switch(imIn->type) {
                 case IMAGING_TYPE_UINT8:
                     ImagingResampleHorizontalConvolution8u(
                         (UINT32 *) imOut->image32[yy],
                         (UINT32 *) imIn->image32[yy],
-                        imOut->xsize, xbounds, intkk, kmax
+                        imOut->xsize, xbounds, intkk, kmax, coefs_precision
                     );
                     break;
                 }
