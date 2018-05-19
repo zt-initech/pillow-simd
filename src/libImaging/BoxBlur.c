@@ -184,10 +184,6 @@ ImagingHorizontalBoxBlur(Imaging imOut, Imaging imIn, float floatRadius)
     int edgeA = MIN(radius + 1, imIn->xsize);
     int edgeB = MAX(imIn->xsize - radius - 1, 0);
 
-    UINT32 *lineOut = calloc(imIn->xsize, sizeof(UINT32));
-    if (lineOut == NULL)
-        return ImagingError_MemoryError();
-
     // printf(">>> %d %d %d\n", radius, ww, fw);
 
     ImagingSectionEnter(&cookie);
@@ -196,38 +192,28 @@ ImagingHorizontalBoxBlur(Imaging imOut, Imaging imIn, float floatRadius)
     {
         for (y = 0; y < imIn->ysize; y++) {
             ImagingLineBoxBlur8(
-                (imIn == imOut ? (UINT8 *) lineOut : imOut->image8[y]),
+                imOut->image8[y],
                 imIn->image8[y],
                 imIn->xsize - 1,
                 radius, edgeA, edgeB,
                 ww, fw
             );
-            if (imIn == imOut) {
-                // Commit.
-                memcpy(imOut->image8[y], lineOut, imIn->xsize);
-            }
         }
     }
     else
     {
         for (y = 0; y < imIn->ysize; y++) {
             ImagingLineBoxBlur32(
-                imIn == imOut ? (pixel *) lineOut : (pixel *) imOut->image32[y],
+                (pixel *) imOut->image32[y],
                 (pixel *) imIn->image32[y],
                 imIn->xsize - 1,
                 radius, edgeA, edgeB,
                 ww, fw
             );
-            if (imIn == imOut) {
-                // Commit.
-                memcpy(imOut->image32[y], lineOut, imIn->xsize * 4);
-            }
         }
     }
 
     ImagingSectionLeave(&cookie);
-
-    free(lineOut);
 
     return imOut;
 }
@@ -237,7 +223,12 @@ Imaging
 ImagingBoxBlur(Imaging imOut, Imaging imIn, float radius, int n)
 {
     int i;
-    Imaging imTransposed;
+    /* Real allocated buffer image */
+    Imaging imBuffer;
+    /* Pointers to current working images */
+    Imaging imFrom, imTo;
+    /* Temp pointer for swapping current working images */
+    Imaging imTemp;
 
     if (n < 1) {
         return ImagingError_ValueError(
@@ -265,28 +256,30 @@ ImagingBoxBlur(Imaging imOut, Imaging imIn, float radius, int n)
           strcmp(imIn->mode, "La") == 0))
         return ImagingError_ModeError();
 
-    imTransposed = ImagingNewDirty(imIn->mode, imIn->ysize, imIn->xsize);
-    if (!imTransposed)
+    imBuffer = ImagingNewDirty(imIn->mode, imIn->xsize, imIn->ysize);
+    if ( ! imBuffer)
         return NULL;
 
-    /* Apply blur in one dimension.
-       Use imOut as a destination at first pass,
-       then use imOut as a source too. */
-    ImagingHorizontalBoxBlur(imOut, imIn, radius);
+    /* We always do 2n passes. Odd to imBuffer, even to imOut */
+    imTo = imBuffer;
+    imFrom = imOut;
+
+    /* First pass, use imIn instead of imFrom. */
+    ImagingHorizontalBoxBlur(imTo, imIn, radius);
     for (i = 1; i < n; i ++) {
-        ImagingHorizontalBoxBlur(imOut, imOut, radius);
+        /* Swap current working images */
+        imTemp = imTo; imTo = imFrom; imFrom = imTemp;
+        ImagingHorizontalBoxBlur(imTo, imFrom, radius);
     }
-    /* Transpose result for blur in another direction. */
-    ImagingTranspose(imTransposed, imOut);
 
-    /* Reuse imTransposed as a source and destination there. */
+    /* Reuse imOut as a source and destination there. */
     for (i = 0; i < n; i ++) {
-        ImagingHorizontalBoxBlur(imTransposed, imTransposed, radius);
+        /* Swap current working images */
+        imTemp = imTo; imTo = imFrom; imFrom = imTemp;
+        ImagingHorizontalBoxBlur(imTo, imFrom, radius);
     }
-    /* Restore original orientation. */
-    ImagingTranspose(imOut, imTransposed);
 
-    ImagingDelete(imTransposed);
+    ImagingDelete(imBuffer);
 
     return imOut;
 }
