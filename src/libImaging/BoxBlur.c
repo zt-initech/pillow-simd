@@ -220,6 +220,89 @@ ImagingHorizontalBoxBlur(Imaging imOut, Imaging imIn, float floatRadius)
 
 
 Imaging
+ImagingVerticalBoxBlur(Imaging imOut, Imaging imIn, float floatRadius)
+{
+    ImagingSectionCookie cookie;
+
+    int x, y;
+
+    int radius = (int) floatRadius;
+    UINT32 ww = (UINT32) (1 << 24) / (floatRadius * 2 + 1);
+    UINT32 fw = ((1 << 24) - (radius * 2 + 1) * ww) / 2;
+
+    int edgeA = MIN(radius + 1, imIn->ysize);
+    int edgeB = MAX(imIn->ysize - radius - 1, 0);
+
+    int lasty = imIn->ysize - 1;
+    UINT32 acc;
+    UINT32 bulk;
+
+    #define MOVE_ACC(acc, subtract, add) \
+        acc += ((UINT8)imIn->image[add][x]) - ((UINT8)imIn->image[subtract][x]);
+
+    #define ADD_FAR(bulk, acc, left, right) \
+        bulk = (acc * ww) + (((UINT8)imIn->image[left][x]) + ((UINT8)imIn->image[right][x])) * fw;
+
+    #define SAVE(y, bulk) \
+        ((UINT8*)imOut->image[y])[x] = (UINT8)((bulk + (1 << 23)) >> 24)
+
+    // printf(">>> %d %d %d\n", radius, ww, fw);
+
+    ImagingSectionEnter(&cookie);
+
+    for (x = 0; x < imIn->linesize; x ++) {
+        acc = ((UINT8)imIn->image[0][x]) * (radius + 1);
+        for (y = 0; y < edgeA - 1; y++) {
+            acc += ((UINT8)imIn->image[y][x]);
+        }
+        acc += ((UINT8)imIn->image[lasty][x]) * (radius - edgeA + 1);
+
+        if (edgeA <= edgeB) {
+            for (y = 0; y < edgeA; y++) {
+                MOVE_ACC(acc, 0, y + radius);
+                ADD_FAR(bulk, acc, 0, y + radius + 1);
+                SAVE(y, bulk);
+            }
+            for (y = edgeA; y < edgeB; y++) {
+                MOVE_ACC(acc, y - radius - 1, y + radius);
+                ADD_FAR(bulk, acc, y - radius - 1, y + radius + 1);
+                SAVE(y, bulk);
+            }
+            for (y = edgeB; y <= lasty; y++) {
+                MOVE_ACC(acc, y - radius - 1, lasty);
+                ADD_FAR(bulk, acc, y - radius - 1, lasty);
+                SAVE(y, bulk);
+            }
+        } else {
+            for (y = 0; y < edgeB; y++) {
+                MOVE_ACC(acc, 0, y + radius);
+                ADD_FAR(bulk, acc, 0, y + radius + 1);
+                SAVE(y, bulk);
+            }
+            for (y = edgeB; y < edgeA; y++) {
+                MOVE_ACC(acc, 0, lasty);
+                ADD_FAR(bulk, acc, 0, lasty);
+                SAVE(y, bulk);
+            }
+            for (y = edgeA; y <= lasty; y++) {
+                MOVE_ACC(acc, y - radius - 1, lasty);
+                ADD_FAR(bulk, acc, y - radius - 1, lasty);
+                SAVE(y, bulk);
+            }
+        }
+    }
+
+    ImagingSectionLeave(&cookie);
+
+    #undef MOVE_ACC
+    #undef ADD_FAR
+    #undef SAVE
+
+    return imOut;
+}
+
+
+Imaging
 ImagingBoxBlur(Imaging imOut, Imaging imIn, float radius, int n)
 {
     int i;
@@ -265,11 +348,11 @@ ImagingBoxBlur(Imaging imOut, Imaging imIn, float radius, int n)
     imFrom = imOut;
 
     /* First pass, use imIn instead of imFrom. */
-    ImagingHorizontalBoxBlur(imTo, imIn, radius);
+    ImagingVerticalBoxBlur(imTo, imIn, radius);
     for (i = 1; i < n; i ++) {
         /* Swap current working images */
         imTemp = imTo; imTo = imFrom; imFrom = imTemp;
-        ImagingHorizontalBoxBlur(imTo, imFrom, radius);
+        ImagingVerticalBoxBlur(imTo, imFrom, radius);
     }
 
     /* Reuse imOut as a source and destination there. */
