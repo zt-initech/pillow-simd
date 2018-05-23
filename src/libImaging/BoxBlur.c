@@ -238,18 +238,16 @@ ImagingVerticalBoxBlur(Imaging imOut, Imaging imIn, float floatRadius)
     int lasty = imIn->ysize - 1;
     int line = LINE;
     UINT32 acc[LINE];
-    UINT32 bulk;
+    
+    UINT8 *lineOut, *lineSub, *lineAdd, *lineLeft, *lineRight;
 
-    UINT8 *lineOut, *lineAdd, *lineLeft, *lineRight;
-
-    #define MOVE_ACC(acc, lineSubtract, lineAdd) \
-        acc[x] += lineAdd[xx+x] - lineSubtract[xx+x];
-
-    #define ADD_FAR(bulk, acc, lineLeft, lineRight) \
-        bulk = (acc[x] * ww) + (lineLeft[xx+x] + lineRight[xx+x]) * fw;
-
-    #define SAVE(y, bulk) \
-        lineOut[xx+x] = (UINT8)((bulk + (1 << 23)) >> 24)
+    #define INNER_LOOP(line)  \
+        for (x = 0; x < line; x++) { \
+            UINT32 bulk; \
+            acc[x] += lineAdd[xx+x] - lineSub[xx+x]; \
+            bulk = (acc[x] * ww) + (lineLeft[xx+x] + lineRight[xx+x]) * fw; \
+            lineOut[xx+x] = (UINT8)((bulk + (1 << 23)) >> 24); \
+        }
 
     // printf(">>> %d %d %d\n", radius, ww, fw);
 
@@ -276,75 +274,49 @@ ImagingVerticalBoxBlur(Imaging imOut, Imaging imIn, float floatRadius)
             for (y = 0; y < edgeA; y++) {
                 lineOut = (UINT8 *)imOut->image[y];
                 lineAdd = (UINT8 *)imIn->image[y + radius];
-                lineLeft = (UINT8 *)imIn->image[0];
+                lineSub = lineLeft = (UINT8 *)imIn->image[0];
                 lineRight = (UINT8 *)imIn->image[y + radius + 1];
-                for (x = 0; x < line; x++) {
-                    MOVE_ACC(acc, lineLeft, lineAdd);
-                    ADD_FAR(bulk, acc, lineLeft, lineRight);
-                    SAVE(y, bulk);
-                }
+                INNER_LOOP(line);
             }
             for (y = edgeA; y < edgeB; y++) {
                 lineOut = (UINT8 *)imOut->image[y];
                 lineAdd = (UINT8 *)imIn->image[y + radius];
-                lineLeft = (UINT8 *)imIn->image[y - radius - 1];
+                lineSub = lineLeft = (UINT8 *)imIn->image[y - radius - 1];
                 lineRight = (UINT8 *)imIn->image[y + radius + 1];
-                for (x = 0; x < line; x++) {
-                    MOVE_ACC(acc, lineLeft, lineAdd);
-                    ADD_FAR(bulk, acc, lineLeft, lineRight);
-                    SAVE(y, bulk);
-                }
+                INNER_LOOP(line);
             }
             for (y = edgeB; y <= lasty; y++) {
                 lineOut = (UINT8 *)imOut->image[y];
-                lineLeft = (UINT8 *)imIn->image[y - radius - 1];
-                lineRight = (UINT8 *)imIn->image[lasty];
-                for (x = 0; x < line; x++) {
-                    MOVE_ACC(acc, lineLeft, lineRight);
-                    ADD_FAR(bulk, acc, lineLeft, lineRight);
-                    SAVE(y, bulk);
-                }
+                lineSub = lineLeft = (UINT8 *)imIn->image[y - radius - 1];
+                lineAdd = lineRight = (UINT8 *)imIn->image[lasty];
+                INNER_LOOP(line);
             }
         } else {
             for (y = 0; y < edgeB; y++) {
                 lineOut = (UINT8 *)imOut->image[y];
                 lineAdd = (UINT8 *)imIn->image[y + radius];
-                lineLeft = (UINT8 *)imIn->image[0];
+                lineSub = lineLeft = (UINT8 *)imIn->image[0];
                 lineRight = (UINT8 *)imIn->image[y + radius + 1];
-                for (x = 0; x < line; x++) {
-                    MOVE_ACC(acc, lineLeft, lineAdd);
-                    ADD_FAR(bulk, acc, lineLeft, lineRight);
-                    SAVE(y, bulk);
-                }
+                INNER_LOOP(line);
             }
             for (y = edgeB; y < edgeA; y++) {
                 lineOut = (UINT8 *)imOut->image[y];
-                lineLeft = (UINT8 *)imIn->image[0];
-                lineRight = (UINT8 *)imIn->image[lasty];
-                for (x = 0; x < line; x++) {
-                    MOVE_ACC(acc, lineLeft, lineRight);
-                    ADD_FAR(bulk, acc, lineLeft, lineRight);
-                    SAVE(y, bulk);
-                }
+                lineSub = lineLeft = (UINT8 *)imIn->image[0];
+                lineAdd = lineRight = (UINT8 *)imIn->image[lasty];
+                INNER_LOOP(line);
             }
             for (y = edgeA; y <= lasty; y++) {
                 lineOut = (UINT8 *)imOut->image[y];
-                lineLeft = (UINT8 *)imIn->image[y - radius - 1];
-                lineRight = (UINT8 *)imIn->image[lasty];
-                for (x = 0; x < line; x++) {
-                    MOVE_ACC(acc, lineLeft, lineRight);
-                    ADD_FAR(bulk, acc, lineLeft, lineRight);
-                    SAVE(y, bulk);
-                }
+                lineSub = lineLeft = (UINT8 *)imIn->image[y - radius - 1];
+                lineAdd = lineRight = (UINT8 *)imIn->image[lasty];
+                INNER_LOOP(line);
             }
         }
     }
 
     ImagingSectionLeave(&cookie);
 
-    #undef MOVE_ACC
-    #undef ADD_FAR
-    #undef SAVE
+    #undef INNER_LOOP
     #undef LINE
 
     return imOut;
