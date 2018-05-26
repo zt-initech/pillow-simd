@@ -968,11 +968,13 @@ _gaussian_blur(ImagingObject* self, PyObject* args)
 
     imIn = self->image;
     imOut = ImagingNewDirty(imIn->mode, imIn->xsize, imIn->ysize);
-    if (!imOut)
+    if ( ! imOut)
         return NULL;
 
-    if (!ImagingGaussianBlur(imOut, imIn, radius, passes))
+    if ( ! ImagingGaussianBlur(imOut, imIn, radius, passes)) {
+        ImagingDelete(imOut);
         return NULL;
+    }
 
     return PyImagingNew(imOut);
 }
@@ -1834,11 +1836,13 @@ _unsharp_mask(ImagingObject* self, PyObject* args)
 
     imIn = self->image;
     imOut = ImagingNewDirty(imIn->mode, imIn->xsize, imIn->ysize);
-    if (!imOut)
+    if ( ! imOut)
         return NULL;
 
-    if (!ImagingUnsharpMask(imOut, imIn, radius, percent, threshold))
+    if ( ! ImagingUnsharpMask(imOut, imIn, radius, percent, threshold)) {
+        ImagingDelete(imOut);
         return NULL;
+    }
 
     return PyImagingNew(imOut);
 }
@@ -1857,11 +1861,13 @@ _box_blur(ImagingObject* self, PyObject* args)
 
     imIn = self->image;
     imOut = ImagingNewDirty(imIn->mode, imIn->xsize, imIn->ysize);
-    if (!imOut)
+    if ( ! imOut)
         return NULL;
 
-    if (!ImagingBoxBlur(imOut, imIn, radius, n))
+    if ( ! ImagingBoxBlur(imOut, imIn, radius, n)) {
+        ImagingDelete(imOut);
         return NULL;
+    }
 
     return PyImagingNew(imOut);
 }
