@@ -138,6 +138,102 @@ ImagingLineBoxBlur4(pixel *lineOut, pixel *lineIn, int lastx, int radius,
 }
 
 
+/* Implementation for large or integer radii */
+void static inline
+ImagingLineBoxBlur4Large(pixel *lineOut, pixel *lineIn, int lastx, int radius,
+                         int edgeA, int edgeB, UINT32 ww)
+{
+    int x;
+    UINT32 acc[4];
+    UINT32 bulk[4];
+
+    #define MOVE_ACC(acc, subtract, add) \
+        acc[0] += lineIn[add][0] - lineIn[subtract][0]; \
+        acc[1] += lineIn[add][1] - lineIn[subtract][1]; \
+        acc[2] += lineIn[add][2] - lineIn[subtract][2]; \
+        acc[3] += lineIn[add][3] - lineIn[subtract][3];
+
+    #define ADD_FAR(bulk, acc) \
+        bulk[0] = acc[0] * ww; \
+        bulk[1] = acc[1] * ww; \
+        bulk[2] = acc[2] * ww; \
+        bulk[3] = acc[3] * ww;
+
+    #define SAVE(x, bulk) \
+        lineOut[x][0] = (UINT8)((bulk[0] + (1 << 23)) >> 24); \
+        lineOut[x][1] = (UINT8)((bulk[1] + (1 << 23)) >> 24); \
+        lineOut[x][2] = (UINT8)((bulk[2] + (1 << 23)) >> 24); \
+        lineOut[x][3] = (UINT8)((bulk[3] + (1 << 23)) >> 24);
+
+    /* Compute acc for -1 pixel (outside of image):
+       From "-radius-1" to "-1" get first pixel,
+       then from "0" to "radius-1". */
+    acc[0] = lineIn[0][0] * (radius + 1);
+    acc[1] = lineIn[0][1] * (radius + 1);
+    acc[2] = lineIn[0][2] * (radius + 1);
+    acc[3] = lineIn[0][3] * (radius + 1);
+    /* As radius can be bigger than xsize, iterate to edgeA -1. */
+    for (x = 0; x < edgeA - 1; x++) {
+        acc[0] += lineIn[x][0];
+        acc[1] += lineIn[x][1];
+        acc[2] += lineIn[x][2];
+        acc[3] += lineIn[x][3];
+    }
+    /* Then multiply remainder to last x. */
+    acc[0] += lineIn[lastx][0] * (radius - edgeA + 1);
+    acc[1] += lineIn[lastx][1] * (radius - edgeA + 1);
+    acc[2] += lineIn[lastx][2] * (radius - edgeA + 1);
+    acc[3] += lineIn[lastx][3] * (radius - edgeA + 1);
+
+    if (edgeA <= edgeB)
+    {
+        /* Subtract pixel from left ("0").
+           Add pixels from radius. */
+        for (x = 0; x < edgeA; x++) {
+            MOVE_ACC(acc, 0, x + radius);
+            ADD_FAR(bulk, acc);
+            SAVE(x, bulk);
+        }
+        /* Subtract previous pixel from "-radius".
+           Add pixels from radius. */
+        for (x = edgeA; x < edgeB; x++) {
+            MOVE_ACC(acc, x - radius - 1, x + radius);
+            ADD_FAR(bulk, acc);
+            SAVE(x, bulk);
+        }
+        /* Subtract previous pixel from "-radius".
+           Add last pixel. */
+        for (x = edgeB; x <= lastx; x++) {
+            MOVE_ACC(acc, x - radius - 1, lastx);
+            ADD_FAR(bulk, acc);
+            SAVE(x, bulk);
+        }
+    }
+    else
+    {
+        for (x = 0; x < edgeB; x++) {
+            MOVE_ACC(acc, 0, x + radius);
+            ADD_FAR(bulk, acc);
+            SAVE(x, bulk);
+        }
+        for (x = edgeB; x < edgeA; x++) {
+            MOVE_ACC(acc, 0, lastx);
+            ADD_FAR(bulk, acc);
+            SAVE(x, bulk);
+        }
+        for (x = edgeA; x <= lastx; x++) {
+            MOVE_ACC(acc, x - radius - 1, lastx);
+            ADD_FAR(bulk, acc);
+            SAVE(x, bulk);
+        }
+    }
+
+    #undef MOVE_ACC
+    #undef ADD_FAR
+    #undef SAVE
+}
+
+
 /* Optimized implementation when radius = 0 */
 void static inline
 ImagingLineBoxBlur4Zero(pixel *lineOut, pixel *lineIn, int lastx,
@@ -266,6 +362,73 @@ ImagingLineBoxBlur1(UINT8 *lineOut, UINT8 *lineIn, int lastx, int radius,
 }
 
 
+/* Implementation for large or integer radii */
+void static inline
+ImagingLineBoxBlur1Large(UINT8 *lineOut, UINT8 *lineIn, int lastx, int radius,
+                         int edgeA, int edgeB, UINT32 ww)
+{
+    int x;
+    UINT32 acc;
+    UINT32 bulk;
+
+    #define MOVE_ACC(acc, subtract, add) \
+        acc += lineIn[add] - lineIn[subtract];
+
+    #define ADD_FAR(bulk, acc) \
+        bulk = acc * ww;
+
+    #define SAVE(x, bulk) \
+        lineOut[x] = (UINT8)((bulk + (1 << 23)) >> 24)
+
+    acc = lineIn[0] * (radius + 1);
+    for (x = 0; x < edgeA - 1; x++) {
+        acc += lineIn[x];
+    }
+    acc += lineIn[lastx] * (radius - edgeA + 1);
+
+    if (edgeA <= edgeB)
+    {
+        for (x = 0; x < edgeA; x++) {
+            MOVE_ACC(acc, 0, x + radius);
+            ADD_FAR(bulk, acc);
+            SAVE(x, bulk);
+        }
+        for (x = edgeA; x < edgeB; x++) {
+            MOVE_ACC(acc, x - radius - 1, x + radius);
+            ADD_FAR(bulk, acc);
+            SAVE(x, bulk);
+        }
+        for (x = edgeB; x <= lastx; x++) {
+            MOVE_ACC(acc, x - radius - 1, lastx);
+            ADD_FAR(bulk, acc);
+            SAVE(x, bulk);
+        }
+    }
+    else
+    {
+        for (x = 0; x < edgeB; x++) {
+            MOVE_ACC(acc, 0, x + radius);
+            ADD_FAR(bulk, acc);
+            SAVE(x, bulk);
+        }
+        for (x = edgeB; x < edgeA; x++) {
+            MOVE_ACC(acc, 0, lastx);
+            ADD_FAR(bulk, acc);
+            SAVE(x, bulk);
+        }
+        for (x = edgeA; x <= lastx; x++) {
+            MOVE_ACC(acc, x - radius - 1, lastx);
+            ADD_FAR(bulk, acc);
+            SAVE(x, bulk);
+        }
+    }
+
+    #undef MOVE_ACC
+    #undef ADD_FAR
+    #undef SAVE
+}
+
+
 /* Optimized implementation when radius = 0 */
 void static inline
 ImagingLineBoxBlur1Zero(UINT8 *lineOut, UINT8 *lineIn, int lastx,
@@ -334,6 +497,10 @@ ImagingHorizontalBoxBlur(Imaging imOut, Imaging imIn, float fRadius)
                 ImagingLineBoxBlur1Zero(
                     imOut->image8[y], imIn->image8[y],
                     imIn->xsize - 1, edgeA, edgeB, ww, fw);
+            } else if (fw == 0) {
+                ImagingLineBoxBlur1Large(
+                    imOut->image8[y], imIn->image8[y],
+                    imIn->xsize - 1, radius, edgeA, edgeB, ww);
             } else {
                 ImagingLineBoxBlur1(
                     imOut->image8[y], imIn->image8[y],
@@ -348,6 +515,10 @@ ImagingHorizontalBoxBlur(Imaging imOut, Imaging imIn, float fRadius)
                 ImagingLineBoxBlur4Zero(
                     (pixel *) imOut->image32[y], (pixel *) imIn->image32[y],
                     imIn->xsize - 1, edgeA, edgeB, ww, fw);
+            } else if (fw == 0) {
+                ImagingLineBoxBlur4Large(
+                    (pixel *) imOut->image32[y], (pixel *) imIn->image32[y],
+                    imIn->xsize - 1, radius, edgeA, edgeB, ww);
             } else {
                 ImagingLineBoxBlur4(
                     (pixel *) imOut->image32[y], (pixel *) imIn->image32[y],
@@ -450,6 +621,91 @@ ImagingInnerVertBoxBlur(Imaging imOut, Imaging imIn, int lasty, int radius,
 }
 
 
+/* Implementation for large or integer radii */
+void
+ImagingInnerVertBoxBlurLarge(Imaging imOut, Imaging imIn, int lasty, int radius,
+                             int edgeA, int edgeB, UINT32 ww) 
+{
+    #define LINE 1024
+
+    int x, xx, y;
+    int line = LINE;
+    UINT32 acc[LINE];
+    
+    UINT8 *lineOut, *lineAdd, *lineLeft;
+    
+
+    #define INNER_LOOP(line)  \
+        for (x = 0; x < line; x++) { \
+            UINT32 bulk; \
+            acc[x] += lineAdd[xx+x] - lineLeft[xx+x]; \
+            bulk = acc[x] * ww; \
+            lineOut[xx+x] = (UINT8)((bulk + (1 << 23)) >> 24); \
+        }
+
+    for (xx = 0; xx < imIn->linesize; xx += LINE) {
+        if (xx + LINE > imIn->linesize) {
+            line = imIn->linesize - xx;
+        }
+        lineLeft = (UINT8 *)imIn->image[0];
+        lineAdd = (UINT8 *)imIn->image[lasty];
+        for (x = 0; x < line; x++) {
+            acc[x] = (lineLeft[xx+x] * (radius + 1) +
+                      lineAdd[xx+x] * (radius - edgeA + 1));
+        }
+        for (y = 0; y < edgeA - 1; y++) {
+            lineAdd = (UINT8 *)imIn->image[y];
+            for (x = 0; x < line; x++) {
+                acc[x] += lineAdd[xx+x];
+            }
+        }
+
+        if (edgeA <= edgeB) {
+            for (y = 0; y < edgeA; y++) {
+                lineOut = (UINT8 *)imOut->image[y];
+                lineAdd = (UINT8 *)imIn->image[y + radius];
+                lineLeft = (UINT8 *)imIn->image[0];
+                INNER_LOOP(line);
+            }
+            for (y = edgeA; y < edgeB; y++) {
+                lineOut = (UINT8 *)imOut->image[y];
+                lineAdd = (UINT8 *)imIn->image[y + radius];
+                lineLeft = (UINT8 *)imIn->image[y - radius - 1];
+                INNER_LOOP(line);
+            }
+            for (y = edgeB; y <= lasty; y++) {
+                lineOut = (UINT8 *)imOut->image[y];
+                lineLeft = (UINT8 *)imIn->image[y - radius - 1];
+                lineAdd = (UINT8 *)imIn->image[lasty];
+                INNER_LOOP(line);
+            }
+        } else {
+            for (y = 0; y < edgeB; y++) {
+                lineOut = (UINT8 *)imOut->image[y];
+                lineAdd = (UINT8 *)imIn->image[y + radius];
+                lineLeft = (UINT8 *)imIn->image[0];
+                INNER_LOOP(line);
+            }
+            for (y = edgeB; y < edgeA; y++) {
+                lineOut = (UINT8 *)imOut->image[y];
+                lineLeft = (UINT8 *)imIn->image[0];
+                lineAdd = (UINT8 *)imIn->image[lasty];
+                INNER_LOOP(line);
+            }
+            for (y = edgeA; y <= lasty; y++) {
+                lineOut = (UINT8 *)imOut->image[y];
+                lineLeft = (UINT8 *)imIn->image[y - radius - 1];
+                lineAdd = (UINT8 *)imIn->image[lasty];
+                INNER_LOOP(line);
+            }
+        }
+    }
+
+    #undef INNER_LOOP
+    #undef LINE
+}
+
+
 /* Optimized implementation when radius = 0 */
 void
 ImagingInnerVertBoxBlurZero(Imaging imOut, Imaging imIn, int lasty,
@@ -528,6 +784,9 @@ ImagingVerticalBoxBlur(Imaging imOut, Imaging imIn, float fRadius)
     if (radius == 0) {
         ImagingInnerVertBoxBlurZero(imOut, imIn, lasty,
                                     edgeA, edgeB, ww, fw);
+    } else if (fw == 0) {
+        ImagingInnerVertBoxBlurLarge(imOut, imIn, lasty, radius,
+                                     edgeA, edgeB, ww);
     } else {
         ImagingInnerVertBoxBlur(imOut, imIn, lasty, radius,
                                 edgeA, edgeB, ww, fw);
