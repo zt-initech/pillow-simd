@@ -10,10 +10,42 @@
 
 typedef UINT8 pixel[4];
 
+
+int static
+compute_params(float fRadius, int maxSize,
+               int *edgeA, int *edgeB, UINT32 *ww, UINT32 *fw)
+{
+    float error;
+    int radius = (int) fRadius;
+
+    /* The hypothetical error which could be
+       if we round the radius to the nearest integer. */
+    error = fabs(fRadius - round(fRadius)) * 2 / (round(fRadius) * 2 + 1);
+
+    // printf(">>> %f (%f, ", fRadius, error);
+
+    /* If the error is small enough, use simpler implementation.
+       Works for near-integer radii and large radii. */
+    if (256 * error < 1) {
+        radius = fRadius = round(fRadius);
+    }
+
+    *ww = (UINT32) (1 << 24) / (fRadius * 2 + 1);
+    *fw = (UINT32) (1 << 24) * (fRadius - radius) / (fRadius * 2 + 1);
+
+    *edgeA = MIN(radius + 1, maxSize);
+    *edgeB = MAX(maxSize - radius - 1, 0);
+
+    // printf("%d), from %d to %d. %d %d\n", radius, *edgeA, *edgeB, *ww, *fw);
+
+    return radius;
+}
+
+
 /* General implementation when radius > 0 and not too big */
 void static inline
 ImagingLineBoxBlur4(pixel *lineOut, pixel *lineIn, int lastx, int radius,
-    int edgeA, int edgeB, UINT32 ww, UINT32 fw)
+                    int edgeA, int edgeB, UINT32 ww, UINT32 fw)
 {
     int x;
     UINT32 acc[4];
@@ -284,20 +316,14 @@ ImagingLineBoxBlur1Zero(UINT8 *lineOut, UINT8 *lineIn, int lastx,
 
 
 Imaging
-ImagingHorizontalBoxBlur(Imaging imOut, Imaging imIn, float floatRadius)
+ImagingHorizontalBoxBlur(Imaging imOut, Imaging imIn, float fRadius)
 {
     ImagingSectionCookie cookie;
 
+    UINT32 ww, fw;
+    int edgeA, edgeB;
+    int radius = compute_params(fRadius, imIn->xsize, &edgeA, &edgeB, &ww, &fw);
     int y;
-
-    int radius = (int) floatRadius;
-    UINT32 ww = (UINT32) (1 << 24) / (floatRadius * 2 + 1);
-    UINT32 fw = ((1 << 24) - (radius * 2 + 1) * ww) / 2;
-
-    int edgeA = MIN(radius + 1, imIn->xsize);
-    int edgeB = MAX(imIn->xsize - radius - 1, 0);
-
-    // printf(">>> %d, from %d to %d. %d %d\n", radius, edgeA, edgeB, ww, fw);
 
     ImagingSectionEnter(&cookie);
 
@@ -486,16 +512,13 @@ ImagingInnerVertBoxBlurZero(Imaging imOut, Imaging imIn, int lasty,
 
 
 Imaging
-ImagingVerticalBoxBlur(Imaging imOut, Imaging imIn, float floatRadius)
+ImagingVerticalBoxBlur(Imaging imOut, Imaging imIn, float fRadius)
 {
     ImagingSectionCookie cookie;
 
-    int radius = (int) floatRadius;
-    UINT32 ww = (UINT32) (1 << 24) / (floatRadius * 2 + 1);
-    UINT32 fw = ((1 << 24) - (radius * 2 + 1) * ww) / 2;
-
-    int edgeA = MIN(radius + 1, imIn->ysize);
-    int edgeB = MAX(imIn->ysize - radius - 1, 0);
+    UINT32 ww, fw;
+    int edgeA, edgeB;
+    int radius = compute_params(fRadius, imIn->ysize, &edgeA, &edgeB, &ww, &fw);
     int lasty = imIn->ysize - 1;
 
     // printf(">>> %d, from %d to %d. %d %d\n", radius, edgeA, edgeB, ww, fw);
