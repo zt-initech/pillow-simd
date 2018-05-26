@@ -5,6 +5,8 @@
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
+/* Number of bits in 32-bit accumulator not occupied by the final 8-bit value */
+#define ACC_MAX_PRECISION 24
 
 typedef UINT8 pixel[4];
 
@@ -527,8 +529,13 @@ ImagingBoxBlur(Imaging imOut, Imaging imIn, float radius, int n)
 
     if (n < 1) {
         return ImagingError_ValueError(
-            "number of passes must be greater than zero"
-        );
+            "number of passes must be greater than zero");
+    }
+    if (radius >= (1<<ACC_MAX_PRECISION)) {
+        return ImagingError_ValueError("Radius is too large");
+    }
+    if (radius < 0 ) {
+        return ImagingError_ValueError("Radius can't be negative");
     }
 
     if (strcmp(imIn->mode, imOut->mode) ||
