@@ -849,18 +849,18 @@ ImagingBoxBlur(Imaging imOut, Imaging imIn, float radius, int n)
     imFrom = imOut;
 
     /* First pass, use imIn instead of imFrom. */
-    ImagingVerticalBoxBlur(imTo, imIn, radius);
+    ImagingHorizontalBoxBlur(imTo, imIn, radius);
     for (i = 1; i < n; i ++) {
         /* Swap current working images */
         imTemp = imTo; imTo = imFrom; imFrom = imTemp;
-        ImagingVerticalBoxBlur(imTo, imFrom, radius);
+        ImagingHorizontalBoxBlur(imTo, imFrom, radius);
     }
 
     /* Reuse imOut as a source and destination there. */
     for (i = 0; i < n; i ++) {
         /* Swap current working images */
         imTemp = imTo; imTo = imFrom; imFrom = imTemp;
-        ImagingHorizontalBoxBlur(imTo, imFrom, radius);
+        ImagingVerticalBoxBlur(imTo, imFrom, radius);
     }
 
     ImagingDelete(imBuffer);
