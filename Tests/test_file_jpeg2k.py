@@ -115,6 +115,12 @@ class TestFileJpeg2k(PillowTestCase):
             im.load()
             self.assertEqual(im.size, (160, 120))
 
+    def test_load_reduce(self):
+        with Image.open("Tests/images/test-card-lossless.jp2") as im:
+            im.load_reduce = 2
+            im.load()
+            self.assertEqual(im.size, (160, 120))
+
     def test_layers_type(self):
         outfile = self.tempfile("temp_layers.jp2")
         for quality_layers in [[100, 50, 10], (100, 50, 10), None]:
