@@ -109,17 +109,16 @@ class TestFileJpeg2k(PillowTestCase):
         im = self.roundtrip(test_card, num_resolutions=8, progression="RLCP")
         self.assert_image_equal(im, test_card)
 
-    def test_reduce(self):
+    def test_reduce_on_load(self):
         with Image.open("Tests/images/test-card-lossless.jp2") as im:
-            im.reduce = 2
+            with self.assertWarns(DeprecationWarning):
+                im.reduce = 2
             im.load()
             self.assertEqual(im.size, (160, 120))
 
-    def test_load_reduce(self):
+    def test_reduce_method(self):
         with Image.open("Tests/images/test-card-lossless.jp2") as im:
-            im.load_reduce = 2
-            im.load()
-            self.assertEqual(im.size, (160, 120))
+            self.assertEqual(im.reduce(2).size, (320, 240))
 
     def test_layers_type(self):
         outfile = self.tempfile("temp_layers.jp2")

@@ -15,6 +15,7 @@
 import io
 import os
 import struct
+import warnings
 
 from . import Image, ImageFile
 
@@ -176,11 +177,8 @@ class Jpeg2KImageFile(ImageFile.ImageFile):
         if self.size is None or self.mode is None:
             raise SyntaxError("unable to determine size/mode")
 
-        self.load_reduce = 0
+        self._reduce = 0
         self.layers = 0
-
-        fd = -1
-        length = -1
 
         try:
             fd = self.fp.fileno()
@@ -200,14 +198,13 @@ class Jpeg2KImageFile(ImageFile.ImageFile):
                 "jpeg2k",
                 (0, 0) + self.size,
                 0,
-                (self.codec, self.load_reduce, self.layers, fd, length),
+                (self.codec, self._reduce, self.layers, fd, length),
             )
         ]
 
     def load(self):
-        reduce = self.reduce if not callable(self.reduce) else self.load_reduce
-        if reduce:
-            power = 1 << reduce
+        if self._reduce:
+            power = 1 << self._reduce
             adjust = power >> 1
             self._size = (
                 int((self.size[0] + adjust) / power),
@@ -217,10 +214,23 @@ class Jpeg2KImageFile(ImageFile.ImageFile):
         if self.tile:
             # Update the reduce and layers settings
             t = self.tile[0]
-            t3 = (t[3][0], reduce, self.layers, t[3][3], t[3][4])
+            t3 = (t[3][0], self._reduce, self.layers, t[3][3], t[3][4])
             self.tile = [(t[0], (0, 0) + self.size, t[2], t3)]
 
         return ImageFile.ImageFile.load(self)
+
+    @property
+    def reduce(self):
+        return super().reduce
+
+    @reduce.setter
+    def reduce(self, value):
+        warnings.warn(
+            "The reduce property for Jpeg2KImageFile is deprecated "
+            "and will be removed in the next major version.",
+            DeprecationWarning,
+        )
+        self._reduce = value
 
 
 def _accept(prefix):
