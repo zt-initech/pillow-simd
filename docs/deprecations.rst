@@ -12,6 +12,16 @@ Deprecated features
 Below are features which are considered deprecated. Where appropriate,
 a ``DeprecationWarning`` is issued.
 
+Jpeg2KImageFile.reduce property
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. deprecated:: 7.1.0
+
+For backward compatibility, it is possible to set the appropriate value
+to that attribute, ``DeprecationWarning`` is issued.
+It is not possible to read this attribute since the
+:py:meth:`~PIL.Image.Image.reduce` method will be returned.
+
 ImageCms.CmsProfile attributes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

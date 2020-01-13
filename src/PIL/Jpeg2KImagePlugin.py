@@ -227,7 +227,7 @@ class Jpeg2KImageFile(ImageFile.ImageFile):
     def reduce(self, value):
         warnings.warn(
             "The reduce property for Jpeg2KImageFile is deprecated "
-            "and will be removed in the next major version.",
+            "and will be removed in a future major version.",
             DeprecationWarning,
         )
         self._reduce = value
