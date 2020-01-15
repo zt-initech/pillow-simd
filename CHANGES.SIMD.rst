@@ -1,8 +1,13 @@
 Changelog (Pillow-SIMD)
 =======================
 
-6.0.0.post0
+6.0.0.post1
 -----------
+
+- GCC 9.0+: fixed unaligned read for ``_**_cvtepu8_epi32`` functions.
+
+6.0.0.post0 and 5.3.0.post1
+---------------------------
 
 - Resampling: Correct max coefficient calculation. Some rare combinations of
   initial and requested sizes lead to black lines.
