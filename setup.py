@@ -229,7 +229,7 @@ def get_version():
     return locals()["__version__"]
 
 
-NAME = "Pillow"
+NAME = "Pillow-SIMD"
 PILLOW_VERSION = get_version()
 JPEG_ROOT = None
 JPEG2K_ROOT = None
@@ -712,7 +712,15 @@ class pil_build_ext(build_ext):
         else:
             defs.append(("PILLOW_VERSION", '"%s"' % PILLOW_VERSION))
 
-        exts = [(Extension("PIL._imaging", files, libraries=libs, define_macros=defs))]
+        exts = [
+            Extension(
+                "PIL._imaging",
+                files,
+                libraries=libs,
+                define_macros=defs,
+                extra_compile_args=["-msse4"],
+            )
+        ]
 
         #
         # additional libraries
@@ -840,10 +848,10 @@ try:
         name=NAME,
         version=PILLOW_VERSION,
         description="Python Imaging Library (Fork)",
-        long_description=_read("README.rst").decode("utf-8"),
+        long_description=_read("PyPI.rst").decode("utf-8"),
         author="Alex Clark (Fork Author)",
         author_email="aclark@aclark.net",
-        url="http://python-pillow.org",
+        url="https://github.com/uploadcare/pillow-simd",
         classifiers=[
             "Development Status :: 6 - Mature",
             "License :: OSI Approved :: Historical Permission Notice and Disclaimer (HPND)",  # noqa: E501
